@@ -65,27 +65,49 @@ export function ConversationList({
           return;
         }
 
+        // Filter out self-conversations and ensure unique conversations
+        const filteredConversations = conversationsData.filter(conv => 
+          conv.participant1_id !== conv.participant2_id
+        );
+
         // Then, fetch latest message for each conversation
         const conversationsWithMessages = await Promise.all(
-          conversationsData.map(async (conversation) => {
-            const { data: messages } = await supabase
-              .from('messages')
-              .select('content, created_at')
-              .eq('conversation_id', conversation.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
+          filteredConversations.map(async (conversation) => {
+            try {
+              const { data: messages, error: messageError } = await supabase
+                .from('messages')
+                .select('content, created_at')
+                .eq('conversation_id', conversation.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
 
-            return {
-              ...conversation,
-              latest_message: messages || undefined
-            };
+              if (messageError && messageError.code !== 'PGRST116') { // Ignore "no rows returned" error
+                console.error('Error fetching messages:', messageError);
+              }
+
+              return {
+                ...conversation,
+                latest_message: messages || undefined
+              };
+            } catch (err) {
+              console.error('Error processing conversation:', err);
+              return conversation;
+            }
           })
         );
 
-        setConversations(conversationsWithMessages);
+        // Sort conversations by latest message or updated_at
+        const sortedConversations = conversationsWithMessages.sort((a, b) => {
+          const aTime = a.latest_message?.created_at || a.updated_at;
+          const bTime = b.latest_message?.created_at || b.updated_at;
+          return new Date(bTime).getTime() - new Date(aTime).getTime();
+        });
+
+        setConversations(sortedConversations);
         setLoading(false);
       } catch (err) {
+        console.error('Failed to load conversations:', err);
         setError('Failed to load conversations');
         setLoading(false);
       }
@@ -112,7 +134,7 @@ export function ConversationList({
     return () => {
       subscription.unsubscribe();
     };
-  }, [currentUserId]); // Add currentUserId as dependency
+  }, [currentUserId]);
 
   if (loading) {
     return <div className="p-4">Loading conversations...</div>;
