@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useRef, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
+import type { Profile } from "@/lib/supabase/database.types";
 
 // Message input component (internal to page)
 function MessageInput({ conversationId }: { conversationId: string }) {
@@ -70,6 +72,7 @@ function MessageList() {
           >
             <div className="flex items-start gap-2">
               <Avatar className="w-6 h-6">
+                <AvatarImage src={message.sender?.avatar_url || undefined} />
                 <AvatarFallback>
                   {message.sender?.username?.[0] || "U"}
                 </AvatarFallback>
@@ -88,170 +91,123 @@ function MessageList() {
   );
 }
 
+type ConversationDetails = {
+  otherParticipant: Profile;
+  conversationId: string;
+};
+
+// Conversation header component
+function ConversationHeader({ otherParticipant }: { otherParticipant: Profile }) {
+  return (
+    <header className="border-b p-4 flex items-center gap-3">
+      <Avatar>
+        <AvatarImage src={otherParticipant.avatar_url || undefined} />
+        <AvatarFallback>{otherParticipant.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+      </Avatar>
+      <div>
+        <h1 className="text-lg font-semibold">{otherParticipant.username}</h1>
+        <p className="text-sm text-muted-foreground">Online</p>
+      </div>
+    </header>
+  );
+}
+
 // Main chat page component
 export default function ChatPage() {
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const conversationId = searchParams.get("conversation");
+  const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSingleUser, setIsSingleUser] = useState(false);
 
   useEffect(() => {
-    async function initializeConversation() {
+    async function loadConversationDetails() {
+      if (!conversationId) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
       try {
         const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
         
-        // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError || !user) {
+        if (!user) {
           setError("Not authenticated");
           setIsLoading(false);
           return;
         }
 
-        // Get or verify profile exists (don't try to create it)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          setError("Failed to load profile");
-          setIsLoading(false);
-          return;
-        }
-
-        // Count total users to check if we're the only one
-        const { count, error: countError } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-
-        if (!countError && count === 1) {
-          setIsSingleUser(true);
-          setIsLoading(false);
-          return;
-        }
-
-        // Try to find existing conversation
-        const { data: existingConversations, error: conversationError } = await supabase
+        // Fetch conversation with participants
+        const { data: conversation, error: convError } = await supabase
           .from('conversations')
           .select(`
             *,
             participant1:profiles!conversations_participant1_id_fkey (
-              id,
-              username,
-              avatar_url
+              id, username, avatar_url, updated_at
             ),
             participant2:profiles!conversations_participant2_id_fkey (
-              id,
-              username,
-              avatar_url
+              id, username, avatar_url, updated_at
             )
           `)
-          .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
-          .order('updated_at', { ascending: false })
-          .limit(1);
-
-        if (conversationError) {
-          console.error('Error fetching conversations:', conversationError);
-          setError("Failed to load conversations");
-          setIsLoading(false);
-          return;
-        }
-
-        if (existingConversations && existingConversations.length > 0) {
-          setConversationId(existingConversations[0].id);
-          setIsLoading(false);
-          return;
-        }
-
-        // Find another user to chat with
-        const { data: otherUsers, error: otherUsersError } = await supabase
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .neq('id', user.id)
-          .limit(1);
-
-        if (otherUsersError || !otherUsers || otherUsers.length === 0) {
-          setIsSingleUser(true);
-          setIsLoading(false);
-          return;
-        }
-
-        // Create new conversation with other user
-        const { data: newConversation, error: createError } = await supabase
-          .from('conversations')
-          .insert({
-            participant1_id: user.id,
-            participant2_id: otherUsers[0].id
-          })
-          .select()
+          .eq('id', conversationId)
           .single();
 
-        if (createError) {
-          console.error('Error creating conversation:', createError);
-          setError("Failed to create conversation");
+        if (convError || !conversation) {
+          setError("Conversation not found");
           setIsLoading(false);
           return;
         }
 
-        setConversationId(newConversation.id);
+        // Determine the other participant
+        const otherParticipant = 
+          conversation.participant1.id === user.id 
+            ? conversation.participant2 
+            : conversation.participant1;
+
+        setConversationDetails({
+          otherParticipant,
+          conversationId: conversation.id
+        });
         setIsLoading(false);
 
-      } catch (error) {
-        console.error('Conversation initialization error:', error);
-        setError("Something went wrong");
+      } catch (err) {
+        console.error('Error loading conversation:', err);
+        setError("Failed to load conversation");
         setIsLoading(false);
       }
     }
 
-    initializeConversation();
-  }, []);
+    loadConversationDetails();
+  }, [conversationId]);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading conversation...</div>;
-  }
-
-  if (isSingleUser) {
+  if (!conversationId) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-4 text-center space-y-4">
-        <h1 className="text-xl font-semibold">Welcome to the Chat App!</h1>
+        <h1 className="text-xl font-semibold">Select a Conversation</h1>
         <p className="text-muted-foreground">
-          You're currently the only user in the system. 
-          Invite others to join so you can start chatting!
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Share the signup link with others to get started.
+          Choose a conversation from the sidebar or start a new one.
         </p>
       </div>
     );
   }
 
-  if (error) {
-    return <div className="flex items-center justify-center h-screen text-red-500">{error}</div>;
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading conversation...</div>;
   }
 
-  if (!conversationId) {
-    return <div className="flex items-center justify-center h-screen">No conversation available</div>;
+  if (error || !conversationDetails) {
+    return <div className="flex items-center justify-center h-screen text-red-500">{error || "Conversation not found"}</div>;
   }
 
   return (
-    <MessagesProvider conversationId={conversationId}>
+    <MessagesProvider conversationId={conversationDetails.conversationId}>
       <div className="flex flex-col h-screen">
-        <header className="border-b p-4 flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>U</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-lg font-semibold">Chat</h1>
-            <p className="text-sm text-muted-foreground">Online</p>
-          </div>
-        </header>
-
+        <ConversationHeader otherParticipant={conversationDetails.otherParticipant} />
         <MessageList />
-        <MessageInput conversationId={conversationId} />
+        <MessageInput conversationId={conversationDetails.conversationId} />
       </div>
     </MessagesProvider>
   );
