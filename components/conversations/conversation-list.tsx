@@ -44,6 +44,13 @@ export function ConversationList({
 
     async function fetchConversations() {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError("Not authenticated");
+          setLoading(false);
+          return;
+        }
+
         // First, fetch conversations with participants
         const { data: conversationsData, error: conversationsError } = await supabase
           .from('conversations')
@@ -56,7 +63,7 @@ export function ConversationList({
               id, username, avatar_url, updated_at
             )
           `)
-          .or(`participant1_id.eq.${currentUserId},participant2_id.eq.${currentUserId}`)
+          .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
           .order('updated_at', { ascending: false });
 
         if (conversationsError) {
@@ -70,41 +77,25 @@ export function ConversationList({
           conv.participant1_id !== conv.participant2_id
         );
 
-        // Then, fetch latest message for each conversation
+        // Modified message fetching to fix 406 error
         const conversationsWithMessages = await Promise.all(
           filteredConversations.map(async (conversation) => {
-            try {
-              const { data: messages, error: messageError } = await supabase
-                .from('messages')
-                .select('content, created_at')
-                .eq('conversation_id', conversation.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+            const { data: latestMessage } = await supabase
+              .from('messages')
+              .select('id, content, created_at')
+              .eq('conversation_id', conversation.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
-              if (messageError && messageError.code !== 'PGRST116') { // Ignore "no rows returned" error
-                console.error('Error fetching messages:', messageError);
-              }
-
-              return {
-                ...conversation,
-                latest_message: messages || undefined
-              };
-            } catch (err) {
-              console.error('Error processing conversation:', err);
-              return conversation;
-            }
+            return {
+              ...conversation,
+              latest_message: latestMessage || undefined
+            };
           })
         );
 
-        // Sort conversations by latest message or updated_at
-        const sortedConversations = conversationsWithMessages.sort((a, b) => {
-          const aTime = a.latest_message?.created_at || a.updated_at;
-          const bTime = b.latest_message?.created_at || b.updated_at;
-          return new Date(bTime).getTime() - new Date(aTime).getTime();
-        });
-
-        setConversations(sortedConversations);
+        setConversations(conversationsWithMessages);
         setLoading(false);
       } catch (err) {
         console.error('Failed to load conversations:', err);

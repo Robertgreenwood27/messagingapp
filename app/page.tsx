@@ -47,35 +47,25 @@ export default function LoginPage() {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              username: username,
-            }
-          }
         });
 
-        if (signUpError) {
-          if (signUpError.message.includes('email')) {
-            throw new Error('This email is already registered');
-          }
-          throw signUpError;
-        }
+        if (signUpError) throw signUpError;
 
         if (signUpData.user) {
-          // Create profile
+          // Create profile entry
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
               id: signUpData.user.id,
               username: username,
               full_name: username,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             });
 
           if (profileError) {
-            if (profileError.message.includes('username')) {
-              throw new Error('This username is already taken');
-            }
-            throw profileError;
+            console.error('Profile creation error:', profileError);
+            throw new Error('Failed to create user profile');
           }
         }
       } else {
@@ -95,12 +85,6 @@ export default function LoginPage() {
     } catch (error) {
       console.error('Auth error:', error);
       setError(error instanceof Error ? error.message : 'An error occurred');
-      
-      // If the error is about email confirmation
-      if (error instanceof Error && 
-          error.message.includes('Email confirmation')) {
-        setError('Please check your email to confirm your account');
-      }
     } finally {
       setIsLoading(false);
     }

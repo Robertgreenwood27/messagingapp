@@ -1,7 +1,10 @@
 // components/providers/messages-provider.tsx
+"use client";
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 type MessagesContextType = {
   messages: (Message & { sender: Profile | null })[];
@@ -22,37 +25,53 @@ export function MessagesProvider({
   const [messages, setMessages] = useState<(Message & { sender: Profile | null })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!conversationId || !currentUserId) return;
     setIsLoading(true);
     setError(null);
 
-    // Fetch existing messages
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
+    let subscription: RealtimeChannel;
+
+    async function fetchMessages() {
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select(`
-          *,
+          id,
+          content,
+          created_at,
+          sender_id,
+          conversation_id,
           sender:profiles(*)
         `)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        setError(error.message);
+      if (messagesError) {
+        setError(messagesError.message);
         setIsLoading(false);
         return;
       }
 
-      setMessages(data || []);
+      setMessages(messagesData || []);
       setIsLoading(false);
-    };
+    }
 
+    // Initial fetch
     fetchMessages();
 
-    // Subscribe to new messages
-    const subscription = supabase
+    // Set up real-time subscription
+    subscription = supabase
       .channel(`messages:${conversationId}`)
       .on(
         'postgres_changes',
@@ -62,47 +81,71 @@ export function MessagesProvider({
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        async (payload) => {
+        (payload) => {
+          // If the message is from the current user, ignore it as it's already in the state
+          if (payload.new.sender_id === currentUserId) return;
+
           // Fetch the complete message with sender info
-          const { data: newMessage } = await supabase
+          supabase
             .from('messages')
             .select(`
-              *,
+              id,
+              content,
+              created_at,
+              sender_id,
+              conversation_id,
               sender:profiles(*)
             `)
             .eq('id', payload.new.id)
-            .single();
-
-          if (newMessage) {
-            setMessages((prev) => [...prev, newMessage]);
-          }
+            .single()
+            .then(({ data: newMessage, error }) => {
+              if (!error && newMessage) {
+                setMessages((prev) => [...prev, newMessage]);
+              }
+            });
         }
       )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   const sendMessage = async (content: string, conversationId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setError('User must be authenticated to send messages');
+    if (!currentUserId) {
+      setError('Must be authenticated to send messages');
       return;
     }
 
-    const { error: sendError } = await supabase
-      .from('messages')
-      .insert({
-        content,
-        conversation_id: conversationId,
-        sender_id: user.id,
-      });
+    try {
+      const { data: newMessage, error: sendError } = await supabase
+        .from('messages')
+        .insert({
+          content,
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+        })
+        .select(`
+          id,
+          content,
+          created_at,
+          sender_id,
+          conversation_id,
+          sender:profiles(*)
+        `)
+        .single();
 
-    if (sendError) {
-      setError(sendError.message);
+      if (sendError) throw sendError;
+
+      // Optimistically add the new message to the state
+      if (newMessage) {
+        setMessages((prev) => [...prev, newMessage]);
+      }
+
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send message');
     }
   };
 

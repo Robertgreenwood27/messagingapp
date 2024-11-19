@@ -48,7 +48,17 @@ function MessageInput({ conversationId }: { conversationId: string }) {
 function MessageList() {
   const { messages, isLoading, error } = useMessages();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const supabase = createClient();
   
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -59,33 +69,41 @@ function MessageList() {
   if (error) return <div className="flex-1 p-4 text-red-500">Error: {error}</div>;
 
   return (
-    <ScrollArea ref={scrollRef} className="flex-1 p-4">
-      <div className="space-y-4">
-        {messages.map((message) => (
-          <Card
-            key={message.id}
-            className={`max-w-[80%] p-3 ${
-              message.sender?.id === "currentUserId" // We'll replace this with actual user ID later
-                ? "ml-auto bg-primary text-primary-foreground"
-                : ""
-            }`}
-          >
-            <div className="flex items-start gap-2">
-              <Avatar className="w-6 h-6">
-                <AvatarImage src={message.sender?.avatar_url || undefined} />
-                <AvatarFallback>
-                  {message.sender?.username?.[0] || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p>{message.content}</p>
-                <span className="text-xs opacity-70">
-                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                </span>
+    <ScrollArea className="flex-1 p-4">
+      <div className="space-y-4" ref={scrollRef}>
+        {messages.map((message) => {
+          const isCurrentUser = message.sender_id === currentUserId;
+          
+          return (
+            <Card
+              key={message.id}
+              className={`max-w-[80%] p-3 ${
+                isCurrentUser
+                  ? "ml-auto bg-primary text-primary-foreground"
+                  : ""
+              }`}
+            >
+              <div className={`flex items-start gap-2 ${
+                isCurrentUser ? "flex-row-reverse" : ""
+              }`}>
+                {!isCurrentUser && (
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={message.sender?.avatar_url || undefined} />
+                    <AvatarFallback>
+                      {message.sender?.username?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={`flex-1 ${isCurrentUser ? "text-right" : ""}`}>
+                  <p>{message.content}</p>
+                  <span className="text-xs opacity-70">
+                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                  </span>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </ScrollArea>
   );
@@ -140,7 +158,7 @@ export default function ChatPage() {
           return;
         }
 
-        // Fetch conversation with participants
+        // Check if user has access to this conversation
         const { data: conversation, error: convError } = await supabase
           .from('conversations')
           .select(`
@@ -153,10 +171,11 @@ export default function ChatPage() {
             )
           `)
           .eq('id', conversationId)
+          .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
           .single();
 
         if (convError || !conversation) {
-          setError("Conversation not found");
+          setError("You don't have access to this conversation");
           setIsLoading(false);
           return;
         }
