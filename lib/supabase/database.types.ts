@@ -32,6 +32,15 @@ export type TypingStatus = {
   updated_at: string
 }
 
+export type OnlineStatus = {
+  id: string
+  user_id: string
+  last_seen: string
+  is_online: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -54,6 +63,11 @@ export type Database = {
         Row: TypingStatus
         Insert: Omit<TypingStatus, 'id' | 'updated_at'>
         Update: Partial<Omit<TypingStatus, 'id'>>
+      }
+      online_status: {
+        Row: OnlineStatus
+        Insert: Omit<OnlineStatus, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<OnlineStatus, 'id' | 'created_at'>>
       }
     }
   }

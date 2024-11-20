@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
+import { useOnlineStatus } from "@/components/providers/online-status-provider";
 import type { Database } from "@/lib/supabase/database.types";
-import { cn } from "@/lib/utils";
 
 function ConversationSkeleton() {
   return (
@@ -41,6 +41,7 @@ export function ConversationList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { onlineUsers } = useOnlineStatus();
   const supabase = createClient();
 
   useEffect(() => {
@@ -166,7 +167,9 @@ export function ConversationList({
           conversation.participant1.id === currentUserId 
             ? conversation.participant2 
             : conversation.participant1;
-
+        
+        const online = onlineUsers.get(otherParticipant.id)?.is_online;
+        
         return (
           <Button
             key={conversation.id}
@@ -179,12 +182,19 @@ export function ConversationList({
             onClick={() => onConversationSelect(conversation.id)}
           >
             <div className="flex items-center gap-3 w-full">
-              <Avatar>
-                <AvatarImage src={otherParticipant.avatar_url || undefined} />
-                <AvatarFallback>
-                  {otherParticipant.username?.[0]?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar>
+                  <AvatarImage src={otherParticipant.avatar_url || undefined} />
+                  <AvatarFallback>
+                    {otherParticipant.username?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div 
+                  className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                    online ? 'bg-green-500' : 'bg-gray-400'
+                  }`}
+                />
+              </div>
               <div className="flex-1 overflow-hidden">
                 <div className="flex justify-between items-baseline">
                   <span className="font-medium truncate">
@@ -198,11 +208,16 @@ export function ConversationList({
                     </span>
                   )}
                 </div>
-                {conversation.latest_message && (
-                  <p className="text-sm text-muted-foreground truncate">
-                    {conversation.latest_message.content}
-                  </p>
-                )}
+                <div className="flex items-center gap-1">
+                  {online && (
+                    <span className="text-xs text-green-500">online</span>
+                  )}
+                  {conversation.latest_message && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {conversation.latest_message.content}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </Button>
