@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useMessages } from "@/components/providers/messages-provider";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useRef, useEffect } from "react";
-import { Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function MessageSkeleton({ align = "start" }: { align?: "start" | "end" }) {
@@ -57,8 +58,47 @@ function MessageTimestamp({ date }: { date: Date }) {
   );
 }
 
+function DeleteMessageDialog({ 
+  messageId, 
+  onDelete 
+}: { 
+  messageId: string;
+  onDelete: () => Promise<void>;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Message</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. The message will be permanently deleted.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={() => onDelete()}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function MessageList() {
-  const { messages, isLoading, error, retryMessage, deleteFailedMessage } = useMessages();
+  const { messages, isLoading, error, retryMessage, deleteFailedMessage, deleteMessage } = useMessages();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabase = createClient();
@@ -125,15 +165,17 @@ export function MessageList() {
                 </div>
               )}
               <Card
-                className={`max-w-[80%] p-3 ${
+                className={cn(
+                  "max-w-[80%] p-3 group",
                   isCurrentUser
                     ? "ml-auto bg-primary text-primary-foreground"
                     : "dark:bg-zinc-800"
-                }`}
+                )}
               >
-                <div className={`flex items-start gap-2 ${
+                <div className={cn(
+                  "flex items-start gap-2",
                   isCurrentUser ? "flex-row-reverse" : ""
-                }`}>
+                )}>
                   {!isCurrentUser && (
                     <Avatar className="w-6 h-6">
                       <AvatarImage src={message.sender?.avatar_url || undefined} />
@@ -142,8 +184,19 @@ export function MessageList() {
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  <div className={`flex-1 ${isCurrentUser ? "text-right" : ""}`}>
-                    <p className="break-words">{message.content}</p>
+                  <div className={cn(
+                    "flex-1",
+                    isCurrentUser ? "text-right" : ""
+                  )}>
+                    <div className="flex items-start gap-2 justify-between">
+                      <p className="break-words">{message.content}</p>
+                      {isCurrentUser && !message.status && (
+                        <DeleteMessageDialog
+                          messageId={message.id}
+                          onDelete={() => deleteMessage(message.id)}
+                        />
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-1 text-xs opacity-70">
                       <MessageTimestamp date={messageDate} />
                       {isCurrentUser && (
@@ -187,4 +240,4 @@ export function MessageList() {
       </div>
     </ScrollArea>
   );
-} 
+}

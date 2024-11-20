@@ -10,6 +10,7 @@ type MessageWithStatus = (Message & {
   sender: Profile | null;
   status?: 'sending' | 'failed';
   tempId?: string;
+  deleted_at?: string | null;
 });
 
 type MessagesContextType = {
@@ -17,6 +18,7 @@ type MessagesContextType = {
   sendMessage: (content: string, conversationId: string) => Promise<void>;
   retryMessage: (tempId: string) => Promise<void>;
   deleteFailedMessage: (tempId: string) => void;
+  deleteMessage: (messageId: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 };
@@ -58,11 +60,13 @@ export function MessagesProvider({
           id,
           content,
           created_at,
+          deleted_at,
           sender_id,
           conversation_id,
           sender:profiles(*)
         `)
         .eq('conversation_id', conversationId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true });
 
       if (messagesError) {
@@ -82,31 +86,43 @@ export function MessagesProvider({
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen for INSERT and UPDATE
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
-          if (payload.new.sender_id === currentUserId) return;
+        async (payload) => {
+          if (payload.new.sender_id === currentUserId && payload.eventType === 'INSERT') return;
 
-          supabase
+          if (payload.eventType === 'UPDATE' && payload.new.deleted_at) {
+            // Handle message deletion
+            setMessages((prev) => prev.filter(msg => msg.id !== payload.new.id));
+            return;
+          }
+
+          const { data: newMessage, error } = await supabase
             .from('messages')
             .select(`
               id,
               content,
               created_at,
+              deleted_at,
               sender_id,
               conversation_id,
               sender:profiles(*)
             `)
             .eq('id', payload.new.id)
-            .single()
-            .then(({ data: newMessage, error }) => {
-              if (!error && newMessage) {
-                setMessages((prev) => [...prev, newMessage]);
+            .single();
+
+          if (!error && newMessage && !newMessage.deleted_at) {
+            setMessages((prev) => {
+              const exists = prev.some(msg => msg.id === newMessage.id);
+              if (exists) {
+                return prev.map(msg => msg.id === newMessage.id ? newMessage : msg);
               }
+              return [...prev, newMessage];
             });
+          }
         }
       )
       .subscribe();
@@ -148,6 +164,7 @@ export function MessagesProvider({
           id,
           content,
           created_at,
+          deleted_at,
           sender_id,
           conversation_id,
           sender:profiles(*)
@@ -195,6 +212,7 @@ export function MessagesProvider({
           id,
           content,
           created_at,
+          deleted_at,
           sender_id,
           conversation_id,
           sender:profiles(*)
@@ -223,6 +241,36 @@ export function MessagesProvider({
     setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
   };
 
+  const deleteMessage = async (messageId: string) => {
+    if (!currentUserId) return;
+  
+    const messageToDelete = messages.find(msg => msg.id === messageId);
+    if (!messageToDelete || messageToDelete.sender_id !== currentUserId) return;
+  
+    try {
+      // First remove optimistically from UI
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+  
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', currentUserId); // Add explicit sender check
+  
+      if (error) {
+        console.error('Delete error:', error);
+        // Rollback optimistic update
+        setMessages(prev => [...prev, messageToDelete]);
+        throw error;
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      setError('Failed to delete message');
+    }
+  };
+
   return (
     <MessagesContext.Provider
       value={{
@@ -230,6 +278,7 @@ export function MessagesProvider({
         sendMessage,
         retryMessage,
         deleteFailedMessage,
+        deleteMessage,
         isLoading,
         error,
       }}
