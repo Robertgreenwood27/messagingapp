@@ -1,136 +1,20 @@
 // app/(auth)/chat/page.tsx
 "use client";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessagesProvider, useMessages } from "@/components/providers/messages-provider";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useRef, useEffect } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { MessagesProvider } from "@/components/providers/messages-provider";
 import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Profile } from "@/lib/supabase/database.types";
-
-// Message input component (internal to page)
-function MessageInput({ conversationId }: { conversationId: string }) {
-  const [message, setMessage] = useState("");
-  const { sendMessage } = useMessages();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    try {
-      await sendMessage(message, conversationId);
-      setMessage("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
-  };
-
-  return (
-    <div className="border-t p-4">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1"
-        />
-        <Button type="submit">Send</Button>
-      </form>
-    </div>
-  );
-}
-
-// Message list component (internal to page)
-function MessageList() {
-  const { messages, isLoading, error } = useMessages();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const supabase = createClient();
-  
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  if (isLoading) return <div className="flex-1 p-4">Loading messages...</div>;
-  if (error) return <div className="flex-1 p-4 text-red-500">Error: {error}</div>;
-
-  return (
-    <ScrollArea className="flex-1 p-4">
-      <div className="space-y-4" ref={scrollRef}>
-        {messages.map((message) => {
-          const isCurrentUser = message.sender_id === currentUserId;
-          
-          return (
-            <Card
-              key={message.id}
-              className={`max-w-[80%] p-3 ${
-                isCurrentUser
-                  ? "ml-auto bg-primary text-primary-foreground"
-                  : ""
-              }`}
-            >
-              <div className={`flex items-start gap-2 ${
-                isCurrentUser ? "flex-row-reverse" : ""
-              }`}>
-                {!isCurrentUser && (
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={message.sender?.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {message.sender?.username?.[0] || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                <div className={`flex-1 ${isCurrentUser ? "text-right" : ""}`}>
-                  <p>{message.content}</p>
-                  <span className="text-xs opacity-70">
-                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </ScrollArea>
-  );
-}
+import { MessageList } from "@/components/messages/message-list";
+import { MessageInput } from "@/components/messages/message-input";
+import { ConversationHeader } from "@/components/conversations/conversation-header";
+import { TypingIndicator } from "@/components/messages/typing-indicator";
 
 type ConversationDetails = {
   otherParticipant: Profile;
   conversationId: string;
 };
 
-// Conversation header component
-function ConversationHeader({ otherParticipant }: { otherParticipant: Profile }) {
-  return (
-    <header className="border-b p-4 flex items-center gap-3">
-      <Avatar>
-        <AvatarImage src={otherParticipant.avatar_url || undefined} />
-        <AvatarFallback>{otherParticipant.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-      </Avatar>
-      <div>
-        <h1 className="text-lg font-semibold">{otherParticipant.username}</h1>
-        <p className="text-sm text-muted-foreground">Online</p>
-      </div>
-    </header>
-  );
-}
-
-// Main chat page component
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversation");
@@ -158,7 +42,6 @@ export default function ChatPage() {
           return;
         }
 
-        // Check if user has access to this conversation
         const { data: conversation, error: convError } = await supabase
           .from('conversations')
           .select(`
@@ -180,7 +63,6 @@ export default function ChatPage() {
           return;
         }
 
-        // Determine the other participant
         const otherParticipant = 
           conversation.participant1.id === user.id 
             ? conversation.participant2 
@@ -226,6 +108,10 @@ export default function ChatPage() {
       <div className="flex flex-col h-screen">
         <ConversationHeader otherParticipant={conversationDetails.otherParticipant} />
         <MessageList />
+        <TypingIndicator 
+          conversationId={conversationDetails.conversationId}
+          otherUserId={conversationDetails.otherParticipant.id}
+        />
         <MessageInput conversationId={conversationDetails.conversationId} />
       </div>
     </MessagesProvider>

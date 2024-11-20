@@ -7,6 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import type { Database } from "@/lib/supabase/database.types";
+import { cn } from "@/lib/utils";
+
+function ConversationSkeleton() {
+  return (
+    <div className="p-3 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 bg-muted animate-pulse rounded w-32" />
+        <div className="h-3 bg-muted animate-pulse rounded w-48" />
+      </div>
+    </div>
+  );
+}
 
 type ConversationWithProfiles = Database["public"]["Tables"]["conversations"]["Row"] & {
   participant1: Database["public"]["Tables"]["profiles"]["Row"];
@@ -128,7 +141,14 @@ export function ConversationList({
   }, [currentUserId]);
 
   if (loading) {
-    return <div className="p-4">Loading conversations...</div>;
+    return (
+      <div className="space-y-1">
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+        <ConversationSkeleton />
+      </div>
+    );
   }
 
   if (error) {

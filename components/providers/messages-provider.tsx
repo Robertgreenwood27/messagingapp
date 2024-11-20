@@ -6,9 +6,17 @@ import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+type MessageWithStatus = (Message & { 
+  sender: Profile | null;
+  status?: 'sending' | 'failed';
+  tempId?: string;
+});
+
 type MessagesContextType = {
-  messages: (Message & { sender: Profile | null })[];
+  messages: MessageWithStatus[];
   sendMessage: (content: string, conversationId: string) => Promise<void>;
+  retryMessage: (tempId: string) => Promise<void>;
+  deleteFailedMessage: (tempId: string) => void;
   isLoading: boolean;
   error: string | null;
 };
@@ -22,7 +30,7 @@ export function MessagesProvider({
   children: React.ReactNode;
   conversationId: string;
 }) {
-  const [messages, setMessages] = useState<(Message & { sender: Profile | null })[]>([]);
+  const [messages, setMessages] = useState<MessageWithStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -67,10 +75,8 @@ export function MessagesProvider({
       setIsLoading(false);
     }
 
-    // Initial fetch
     fetchMessages();
 
-    // Set up real-time subscription
     subscription = supabase
       .channel(`messages:${conversationId}`)
       .on(
@@ -82,10 +88,8 @@ export function MessagesProvider({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          // If the message is from the current user, ignore it as it's already in the state
           if (payload.new.sender_id === currentUserId) return;
 
-          // Fetch the complete message with sender info
           supabase
             .from('messages')
             .select(`
@@ -118,6 +122,20 @@ export function MessagesProvider({
       return;
     }
 
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: MessageWithStatus = {
+      id: tempId,
+      content,
+      created_at: new Date().toISOString(),
+      sender_id: currentUserId,
+      conversation_id: conversationId,
+      sender: null,
+      status: 'sending',
+      tempId
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
       const { data: newMessage, error: sendError } = await supabase
         .from('messages')
@@ -138,15 +156,71 @@ export function MessagesProvider({
 
       if (sendError) throw sendError;
 
-      // Optimistically add the new message to the state
-      if (newMessage) {
-        setMessages((prev) => [...prev, newMessage]);
-      }
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === tempId ? { ...newMessage, tempId: undefined, status: undefined } : msg
+        )
+      );
 
     } catch (err) {
       console.error('Failed to send message:', err);
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === tempId ? { ...msg, status: 'failed' } : msg
+        )
+      );
       setError(err instanceof Error ? err.message : 'Failed to send message');
     }
+  };
+
+  const retryMessage = async (tempId: string) => {
+    const failedMessage = messages.find(msg => msg.tempId === tempId);
+    if (!failedMessage) return;
+
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.tempId === tempId ? { ...msg, status: 'sending' } : msg
+      )
+    );
+
+    try {
+      const { data: newMessage, error: sendError } = await supabase
+        .from('messages')
+        .insert({
+          content: failedMessage.content,
+          conversation_id: failedMessage.conversation_id,
+          sender_id: currentUserId,
+        })
+        .select(`
+          id,
+          content,
+          created_at,
+          sender_id,
+          conversation_id,
+          sender:profiles(*)
+        `)
+        .single();
+
+      if (sendError) throw sendError;
+
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...newMessage, tempId: undefined, status: undefined } : msg
+        )
+      );
+
+    } catch (err) {
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
+        )
+      );
+      setError(err instanceof Error ? err.message : 'Failed to retry sending message');
+    }
+  };
+
+  const deleteFailedMessage = (tempId: string) => {
+    setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
   };
 
   return (
@@ -154,6 +228,8 @@ export function MessagesProvider({
       value={{
         messages,
         sendMessage,
+        retryMessage,
+        deleteFailedMessage,
         isLoading,
         error,
       }}
