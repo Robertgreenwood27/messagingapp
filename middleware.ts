@@ -9,12 +9,28 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  // If user is not signed in and the current path is not / redirect the user to /
+  // Check admin routes
+  if (req.nextUrl.pathname.startsWith('/admin')) {
+    if (!session) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', session.user.id)
+      .single()
+
+    if (!profile?.is_admin) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+  }
+
+  // Regular auth checks
   if (!session && req.nextUrl.pathname !== '/') {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  // If user is signed in and the current path is / redirect to /chat
   if (session && req.nextUrl.pathname === '/') {
     return NextResponse.redirect(new URL('/chat', req.url))
   }
@@ -23,5 +39,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/chat']
+  matcher: ['/', '/chat', '/admin/:path*']
 }
