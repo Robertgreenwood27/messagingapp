@@ -2,22 +2,172 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
 @layer base {
   :root {
-    --radius: 0.5rem;
+    --background: 0 0% 0%;
+    --foreground: 180 100% 50%;
+    --thermal-glow: 0 0 10px rgba(16,185,129,0.05);
+    --thermal-border: rgba(255, 255, 255, 0.05);
+    --thermal-hover-border: rgba(16, 185, 129, 0.1);
   }
-  
-  :root {
-    color-scheme: dark;
+
+  body {
+    background-color: #000000;
+    color: rgb(230, 230, 230);
   }
+
+  /* Add thermal effects to common elements */
+  button, input, select, textarea {
+    @apply bg-black/20 border border-white/5 transition-all duration-300;
+  }
+
+  button:hover, input:focus, select:focus, textarea:focus {
+    @apply border-emerald-500/10;
+    box-shadow: var(--thermal-glow);
+  }
+
+  [type="text"], [type="email"], [type="password"] {
+    @apply bg-transparent focus:outline-none;
+  }
+}
+
+@layer components {
+  .thermal-border {
+    @apply border border-white/5 transition-all duration-300;
+  }
+
+  .thermal-hover {
+    @apply hover:border-emerald-500/10 hover:shadow-[0_0_10px_rgba(16,185,129,0.05)];
+  }
+
+  .thermal-container {
+    @apply bg-black/20 border border-white/5 rounded-lg transition-all duration-300;
+  }
+
+  .thermal-active {
+    @apply bg-black/30 border-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.05)];
+  }
+}
+
+.heat-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.heat-input-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  padding: 0.5rem 1rem;
+  overflow: hidden;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.heat-input {
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: rgba(0, 183, 255, 0.7) !important;
+}
+
+@keyframes cooling {
+  0% { color: rgb(255, 50, 0); }
+  50% { color: rgb(255, 200, 0); }
+  100% { color: rgb(0, 183, 255); }
+}
+
+.cooling-text {
+  animation: cooling 3s forwards;
+}
+
+@keyframes pulse-move {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-move {
+  animation: pulse-move 6s ease-in-out infinite;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: rgb(255 255 255 / 0.9) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  box-shadow: inset 0 0 20px 20px rgb(8 47 73 / 0.4) !important;
+}
+
+
+
+
+
+[data-radix-scroll-area-viewport] {
+  border-color: black !important;
+}
+
+/* Override all borders to be black */
+* {
+  border-color: black !important;
+}
+
+/* Ensure thermal effects still work but reset to black */
+.thermal-border,
+.thermal-container,
+button, 
+input, 
+select, 
+textarea {
+  border-color: black !important;
+}
+
+/* Reset hover/focus states to black */
+.thermal-hover:hover,
+.thermal-active,
+button:hover, 
+input:focus, 
+select:focus, 
+textarea:focus {
+  border-color: black !important;
+}
+
+
+.heat-input-container {
+  position: relative;
+}
+
+.heat-input-overlay {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.heat-input {
+  position: relative;
+  background: transparent;
+  color: transparent;
+  caret-color: white;
+  z-index: 1;
+}
+
+.heat-input::placeholder {
+  color: transparent;
 }
