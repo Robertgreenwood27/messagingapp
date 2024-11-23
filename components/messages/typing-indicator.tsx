@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
+import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type TypingStatusWithUser = TypingStatus & {
   user: Profile | null;
@@ -14,12 +15,14 @@ type TypingStatusChanges = {
   updated_at: string;
 }
 
-type PostgresChanges = {
-  new: TypingStatusChanges;
-  old: TypingStatusChanges;
-  commit_timestamp: string;
-  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-}
+type PostgresChanges = RealtimePostgresChangesPayload<{
+  [key: string]: unknown;
+  id: string;
+  user_id: string;
+  conversation_id: string;
+  is_typing: boolean;
+  updated_at: string;
+}>
 
 export function TypingIndicator({ 
   conversationId, 
@@ -104,32 +107,37 @@ export function TypingIndicator({
 
     fetchTypingStatus();
 
-    const subscription = supabase
-      .channel(`typing:${conversationId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'typing_status',
-        filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload: PostgresChanges) => {
-        if (payload.new && 'user_id' in payload.new && payload.new.user_id === otherUserId) {
-          const { data: typingData } = await supabase
-            .from('typing_status')
-            .select('*, user:profiles(*)')
-            .eq('id', payload.new.id)
-            .single();
-          
-          if (typingData) {
-            setTypingStatus(typingData);
+    const channel = supabase.channel(`typing:${conversationId}`);
+    
+    channel
+      .on(
+        'postgres_changes' as const,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'typing_status',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload: PostgresChanges) => {
+          if (payload.new && 'user_id' in payload.new && payload.new.user_id === otherUserId) {
+            const { data: typingData } = await supabase
+              .from('typing_status')
+              .select('*, user:profiles(*)')
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (typingData) {
+              setTypingStatus(typingData);
+            }
           }
         }
-      })
+      )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
-  }, [conversationId, otherUserId]);
+  }, [conversationId, otherUserId, supabase]);
 
   if (!typingStatus?.is_typing) return null;
 
