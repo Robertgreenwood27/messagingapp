@@ -21,6 +21,17 @@ interface RealtimeOnlineStatus {
   updated_at: string;
 }
 
+// Type guard for RealtimeOnlineStatus
+function isRealtimeOnlineStatus(value: unknown): value is RealtimeOnlineStatus {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'user_id' in value &&
+    'last_seen' in value &&
+    'is_online' in value
+  );
+}
+
 const ONLINE_THRESHOLD = 30 * 1000; // 30 seconds in milliseconds
 
 const OnlineStatusContext = createContext<OnlineStatusContextType>({
@@ -151,10 +162,10 @@ export function OnlineStatusProvider({
             schema: 'public',
             table: 'online_status'
           },
-          (payload: RealtimePostgresChangesPayload<RealtimeOnlineStatus>) => {
+          (payload: RealtimePostgresChangesPayload<{}>) => {
             setOnlineUsers(prevUsers => {
               const newUsers = new Map(prevUsers);
-              if (payload.new) {
+              if (payload.new && isRealtimeOnlineStatus(payload.new)) {
                 newUsers.set(payload.new.user_id, payload.new);
               }
               return newUsers;
@@ -172,7 +183,9 @@ export function OnlineStatusProvider({
       if (initialStatus) {
         const statusMap = new Map();
         initialStatus.forEach((status) => {
-          statusMap.set(status.user_id, status);
+          if (isRealtimeOnlineStatus(status)) {
+            statusMap.set(status.user_id, status);
+          }
         });
         setOnlineUsers(statusMap);
       }
