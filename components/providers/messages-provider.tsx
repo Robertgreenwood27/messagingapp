@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
+import { SupabaseRealtimePayload } from '@supabase/supabase-js';
 
 type MessageWithStatus = Message & {
   sender: Profile | null;
@@ -59,7 +60,7 @@ export function MessagesProvider({
 
     const subscription = supabase
       .channel(`messages:${conversationId}`)
-      .on(
+      .on<Message>(
         'postgres_changes',
         {
           event: '*', // Listen for INSERT and UPDATE
@@ -67,20 +68,15 @@ export function MessagesProvider({
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        async (payload) => {
+        async (payload: SupabaseRealtimePayload<Message>) => {
           if (
             payload.eventType === 'INSERT' &&
-            'sender_id' in payload.new &&
             payload.new.sender_id === currentUserId
           ) {
             return;
           }
 
-          if (
-            payload.eventType === 'UPDATE' &&
-            'deleted_at' in payload.new &&
-            payload.new.deleted_at
-          ) {
+          if (payload.eventType === 'UPDATE' && payload.new.deleted_at) {
             // Handle message deletion
             setMessages((prev) =>
               prev.filter((msg) => msg.id !== payload.new.id)
