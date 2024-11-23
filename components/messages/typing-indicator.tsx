@@ -1,10 +1,18 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
+import type { TypingStatus, Profile, Database } from '@/lib/supabase/database.types';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type TypingStatusWithUser = TypingStatus & {
   user: Profile | null;
 }
+
+type TypingStatusPayload = RealtimePostgresChangesPayload<{
+  [key: string]: any;
+  user_id: string;
+  conversation_id: string;
+  is_typing: boolean;
+}>
 
 export function TypingIndicator({ 
   conversationId, 
@@ -96,7 +104,7 @@ export function TypingIndicator({
         schema: 'public',
         table: 'typing_status',
         filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload) => {
+      }, async (payload: TypingStatusPayload) => {
         if (payload.new && payload.new.user_id === otherUserId) {
           const { data: typingData } = await supabase
             .from('typing_status')
