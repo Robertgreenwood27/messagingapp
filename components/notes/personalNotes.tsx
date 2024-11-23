@@ -14,7 +14,9 @@ const PersonalNotes = () => {
   useEffect(() => {
     // Load notes from Supabase on component mount
     const loadNotes = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -32,10 +34,12 @@ const PersonalNotes = () => {
         const now = Date.now();
         // Load all text as hot
         setNotes(data.content);
-        setChars(data.content.split('').map(char => ({
-          char,
-          timestamp: now
-        })));
+        setChars(
+          data.content.split('').map((char: string) => ({
+            char,
+            timestamp: now,
+          }))
+        );
       } else {
         setNotes('');
         setChars([]);
@@ -43,11 +47,11 @@ const PersonalNotes = () => {
     };
 
     loadNotes();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setChars(current => [...current]); // Force refresh for heat effect
+      setChars((current) => [...current]); // Force refresh for heat effect
     }, 50);
 
     return () => clearInterval(interval);
@@ -59,7 +63,7 @@ const PersonalNotes = () => {
     setNotes(newValue);
     setHasChanges(true);
 
-    setChars(prevChars => {
+    setChars((prevChars) => {
       const newChars = [];
       for (let i = 0; i < newValue.length; i++) {
         const char = newValue[i];
@@ -77,19 +81,24 @@ const PersonalNotes = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Use upsert to update or insert the note
       const { error } = await supabase
         .from('personal_notes')
-        .upsert({
-          user_id: user.id,
-          content: notes,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            content: notes,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id',
+          }
+        );
 
       if (error) {
         console.error('Error saving notes:', error);
@@ -103,47 +112,48 @@ const PersonalNotes = () => {
     }
   };
 
-  const renderCharacter = (charData: { char: string; timestamp: number }, index: number) => {
+  const renderCharacter = (
+    charData: { char: string; timestamp: number },
+    index: number
+  ) => {
     const age = Date.now() - charData.timestamp;
     const maxAge = 8000; // Extend maxAge for a longer cooling effect
     const progress = Math.min(age / maxAge, 1);
-  
+
     const t = progress * 3; // t ranges from 0 to 3
-  
+
     let color;
-  
+
     if (t < 1) {
       // Phase 1: Red to Yellow
-      // Red remains at 255, Green increases from 70 to 255, Blue remains at 0
-      const g = Math.floor(70 + (185 * t)); // 70 to 255
+      const g = Math.floor(70 + 185 * t); // 70 to 255
       color = `rgb(255, ${g}, 0)`;
     } else if (t < 2) {
       // Phase 2: Yellow to Blue
-      // Red decreases from 255 to 0, Green decreases from 255 to 0, Blue increases from 0 to 255
       const t2 = t - 1;
       const r = Math.floor(255 * (1 - t2)); // 255 to 0
       const g = Math.floor(255 * (1 - t2)); // 255 to 0
-      const b = Math.floor(255 * t2);       // 0 to 255
+      const b = Math.floor(255 * t2); // 0 to 255
       color = `rgb(${r}, ${g}, ${b})`;
     } else {
       // Phase 3: Blue to White
-      // Red increases from 0 to 255, Green increases from 0 to 255, Blue remains at 255
       const t3 = t - 2;
-      const r = Math.floor(255 * t3);       // 0 to 255
-      const g = Math.floor(255 * t3);       // 0 to 255
+      const r = Math.floor(255 * t3); // 0 to 255
+      const g = Math.floor(255 * t3); // 0 to 255
       color = `rgb(${r}, ${g}, 255)`;
     }
-  
+
     // Optional text shadow adjustment
     const shadowOpacity = Math.max(0.3 * (1 - progress), 0);
-    const textShadow = shadowOpacity > 0 ? `0 0 5px rgba(255,50,50,${shadowOpacity})` : 'none';
-  
+    const textShadow =
+      shadowOpacity > 0 ? `0 0 5px rgba(255,50,50,${shadowOpacity})` : 'none';
+
     return (
       <span
         key={index}
         style={{
           color,
-          transition: "color 50ms linear",
+          transition: 'color 50ms linear',
           textShadow,
           whiteSpace: 'pre-wrap',
         }}
@@ -152,8 +162,7 @@ const PersonalNotes = () => {
       </span>
     );
   };
-  
-  
+
   return (
     <div className="flex flex-col h-screen">
       <header className="relative border-b border-white/5 overflow-hidden">
@@ -165,7 +174,11 @@ const PersonalNotes = () => {
               </div>
             </div>
             <p className="text-sm text-white/50">
-              {isSaving ? 'Saving...' : hasChanges ? 'Unsaved changes' : 'All changes saved'}
+              {isSaving
+                ? 'Saving...'
+                : hasChanges
+                ? 'Unsaved changes'
+                : 'All changes saved'}
             </p>
           </div>
 
@@ -176,10 +189,16 @@ const PersonalNotes = () => {
             size="icon"
             className={`
               transition-all duration-300
-              ${hasChanges 
-                ? 'text-orange-400 hover:text-orange-300'
-                : 'text-white/30'}
-              ${hasChanges ? 'hover:shadow-[0_0_15px_rgba(249,115,22,0.15)]' : ''}
+              ${
+                hasChanges
+                  ? 'text-orange-400 hover:text-orange-300'
+                  : 'text-white/30'
+              }
+              ${
+                hasChanges
+                  ? 'hover:shadow-[0_0_15px_rgba(249,115,22,0.15)]'
+                  : ''
+              }
             `}
           >
             <Save className="w-5 h-5" />
