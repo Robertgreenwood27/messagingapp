@@ -15,7 +15,12 @@ type TypingStatusChanges = {
   updated_at: string;
 }
 
-type TypingStatusPayload = RealtimePostgresChangesPayload<TypingStatusChanges>
+type PostgresChanges = {
+  new: TypingStatusChanges;
+  old: TypingStatusChanges;
+  commit_timestamp: string;
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+}
 
 export function TypingIndicator({ 
   conversationId, 
@@ -107,8 +112,8 @@ export function TypingIndicator({
         schema: 'public',
         table: 'typing_status',
         filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload: TypingStatusPayload) => {
-        if (payload.new && payload.new.user_id === otherUserId) {
+      }, async (payload: PostgresChanges) => {
+        if (payload.new && 'user_id' in payload.new && payload.new.user_id === otherUserId) {
           const { data: typingData } = await supabase
             .from('typing_status')
             .select('*, user:profiles(*)')
