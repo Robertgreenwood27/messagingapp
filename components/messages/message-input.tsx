@@ -20,7 +20,6 @@ export function MessageInput({
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [chars, setChars] = useState<CharacterData[]>([]);
-  const [rows, setRows] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage } = useMessages();
   const supabase = createClient();
@@ -74,7 +73,6 @@ export function MessageInput({
       textarea.style.height = 'auto';
       const newHeight = Math.min(textarea.scrollHeight, 150);
       textarea.style.height = `${newHeight}px`;
-      setRows(Math.ceil(newHeight / 24));
     }
   };
 
@@ -178,7 +176,6 @@ export function MessageInput({
             ref={textareaRef}
             value={message}
             onChange={handleChange}
-            rows={1}
             className={`
               w-full rounded-lg 
               bg-white/5 
@@ -192,6 +189,7 @@ export function MessageInput({
               text-base
               resize-none
               overflow-hidden
+              min-h-[42px]
               ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3'}
             `}
             placeholder="Type a message..."
