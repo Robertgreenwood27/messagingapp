@@ -11,20 +11,26 @@ import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// Extend the Message type
-interface MessageWithDeletedAt extends Message {
+// Base message type with deleted_at
+interface MessageWithDeletedAt extends Omit<Message, 'sender'> {
   deleted_at?: string | null;
+  sender?: Profile;
 }
 
-// Update MessageWithStatus
-type MessageWithStatus = MessageWithDeletedAt & {
-  sender: Profile | null;
+// Message type with status for UI
+interface MessageWithStatus extends MessageWithDeletedAt {
   status?: 'sending' | 'failed';
   tempId?: string;
-};
+}
 
-// Type for raw database response
-interface MessageResponse extends MessageWithDeletedAt {
+// Raw database response type (separate from inheritance chain)
+interface MessageResponse {
+  id: string;
+  content: string;
+  created_at: string;
+  deleted_at?: string | null;
+  sender_id: string;
+  conversation_id: string;
   sender: Profile[] | Profile | null;
 }
 
@@ -41,8 +47,15 @@ function isMessageWithDeletedAt(record: unknown): record is MessageWithDeletedAt
 // Helper function to process message response
 function processMessageResponse(message: MessageResponse): MessageWithStatus {
   return {
-    ...message,
-    sender: Array.isArray(message.sender) ? message.sender[0] || null : message.sender
+    id: message.id,
+    content: message.content,
+    created_at: message.created_at,
+    deleted_at: message.deleted_at,
+    sender_id: message.sender_id,
+    conversation_id: message.conversation_id,
+    sender: Array.isArray(message.sender) 
+      ? message.sender[0] || undefined 
+      : message.sender || undefined
   };
 }
 
@@ -205,7 +218,7 @@ export function MessagesProvider({
       deleted_at: null,
       sender_id: currentUserId,
       conversation_id: conversationId,
-      sender: null,
+      sender: undefined,
       status: 'sending',
       tempId,
     };
