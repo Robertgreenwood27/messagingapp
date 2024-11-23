@@ -121,8 +121,8 @@ export function NewConversationDialog() {
       <DialogTrigger asChild>
         <Button 
           variant="ghost" 
-          size="icon"
-          className="hover:bg-black/20 hover:shadow-[0_0_10px_rgba(16,185,129,0.05)]"
+          size="sm"
+          className="h-9 w-9 p-0 hover:bg-black/20 hover:shadow-[0_0_10px_rgba(16,185,129,0.05)]"
         >
           <Plus className="h-5 w-5" />
         </Button>
