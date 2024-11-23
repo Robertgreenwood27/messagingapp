@@ -4,12 +4,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { OnlineStatus } from '@/lib/supabase/database.types';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import debounce from 'lodash/debounce';
 
 type OnlineStatusContextType = {
   onlineUsers: Map<string, OnlineStatus>;
   isOnline: (userId: string) => boolean;
 };
+
+interface RealtimeOnlineStatus {
+  id: string;
+  user_id: string;
+  last_seen: string;
+  is_online: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 const ONLINE_THRESHOLD = 30 * 1000; // 30 seconds in milliseconds
 
@@ -134,19 +144,23 @@ export function OnlineStatusProvider({
       // Subscribe to online status changes
       const subscription = supabase
         .channel('online-users')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'online_status'
-        }, (payload) => {
-          setOnlineUsers(prevUsers => {
-            const newUsers = new Map(prevUsers);
-            if (payload.new) {
-              newUsers.set(payload.new.user_id, payload.new as OnlineStatus);
-            }
-            return newUsers;
-          });
-        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'online_status'
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeOnlineStatus>) => {
+            setOnlineUsers(prevUsers => {
+              const newUsers = new Map(prevUsers);
+              if (payload.new) {
+                newUsers.set(payload.new.user_id, payload.new);
+              }
+              return newUsers;
+            });
+          }
+        )
         .subscribe();
 
       // Fetch initial online status for all users
