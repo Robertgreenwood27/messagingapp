@@ -14,9 +14,7 @@ const PersonalNotes = () => {
   useEffect(() => {
     // Load notes from Supabase on component mount
     const loadNotes = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -81,9 +79,7 @@ const PersonalNotes = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Use upsert to update or insert the note
@@ -186,7 +182,7 @@ const PersonalNotes = () => {
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             variant="ghost"
-            size="icon"
+            size="icon" // This is now accepted after updating Button component
             className={`
               transition-all duration-300
               ${
