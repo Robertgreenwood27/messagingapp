@@ -31,15 +31,15 @@ export async function withErrorHandler(
 ): Promise<Response> {
   try {
     // Rate limiting check
-    const ip = req.headers.get('x-forwarded-for') || 'unknown'
-    const rateLimitKey = `rate_limit:${ip}`
+    // const ip = req.headers.get('x-forwarded-for') || 'unknown'
+    // Remove or implement rate limiting logic here if needed
     
     // Validate request body if schema provided
     if (schema) {
       const body = await req.json()
       try {
         schema.parse(body)
-      } catch (e) {
+      } catch {
         throw new APIError(
           'Invalid request body',
           400,

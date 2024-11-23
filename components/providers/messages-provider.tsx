@@ -1,7 +1,7 @@
 // components/providers/messages-provider.tsx
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -36,7 +36,7 @@ export function MessagesProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -44,44 +44,14 @@ export function MessagesProvider({
         setCurrentUserId(user.id);
       }
     });
-  }, []);
+  }, [supabase.auth]);
 
   useEffect(() => {
     if (!conversationId || !currentUserId) return;
     setIsLoading(true);
     setError(null);
 
-    let subscription: RealtimeChannel;
-
-    async function fetchMessages() {
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          deleted_at,
-          sender_id,
-          conversation_id,
-          sender:profiles(*)
-        `)
-        .eq('conversation_id', conversationId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true });
-
-      if (messagesError) {
-        setError(messagesError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      setMessages(messagesData || []);
-      setIsLoading(false);
-    }
-
-    fetchMessages();
-
-    subscription = supabase
+    const subscription = supabase
       .channel(`messages:${conversationId}`)
       .on(
         'postgres_changes',
@@ -127,10 +97,38 @@ export function MessagesProvider({
       )
       .subscribe();
 
+    async function fetchMessages() {
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          created_at,
+          deleted_at,
+          sender_id,
+          conversation_id,
+          sender:profiles(*)
+        `)
+        .eq('conversation_id', conversationId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) {
+        setError(messagesError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      setMessages(messagesData || []);
+      setIsLoading(false);
+    }
+
+    fetchMessages();
+
     return () => {
-      subscription?.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [conversationId, currentUserId]);
+  }, [conversationId, currentUserId, supabase]);
 
   const sendMessage = async (content: string, conversationId: string) => {
     if (!currentUserId) {
