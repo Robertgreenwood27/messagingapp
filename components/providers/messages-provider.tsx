@@ -23,6 +23,11 @@ type MessageWithStatus = MessageWithDeletedAt & {
   tempId?: string;
 };
 
+// Type guard function
+function isMessageWithDeletedAt(record: any): record is MessageWithDeletedAt {
+  return record && typeof record.id === 'string';
+}
+
 type MessagesContextType = {
   messages: MessageWithStatus[];
   sendMessage: (content: string, conversationId: string) => Promise<void>;
@@ -76,13 +81,18 @@ export function MessagesProvider({
         async (payload: RealtimePostgresChangesPayload<MessageWithDeletedAt>) => {
           if (
             payload.eventType === 'INSERT' &&
+            isMessageWithDeletedAt(payload.new) &&
             payload.new.sender_id === currentUserId
           ) {
             // Ignore messages sent by the current user
             return;
           }
 
-          if (payload.eventType === 'UPDATE' && payload.new.deleted_at) {
+          if (
+            payload.eventType === 'UPDATE' &&
+            isMessageWithDeletedAt(payload.new) &&
+            payload.new.deleted_at
+          ) {
             // Handle message deletion
             setMessages((prev) =>
               prev.filter((msg) => msg.id !== payload.new.id)
@@ -90,32 +100,34 @@ export function MessagesProvider({
             return;
           }
 
-          const { data: newMessage, error } = await supabase
-            .from('messages')
-            .select(
+          if (isMessageWithDeletedAt(payload.new)) {
+            const { data: newMessage, error } = await supabase
+              .from('messages')
+              .select(
+                `
+                id,
+                content,
+                created_at,
+                deleted_at,
+                sender_id,
+                conversation_id,
+                sender:profiles(*)
               `
-              id,
-              content,
-              created_at,
-              deleted_at,
-              sender_id,
-              conversation_id,
-              sender:profiles(*)
-            `
-            )
-            .eq('id', payload.new.id)
-            .single();
+              )
+              .eq('id', payload.new.id)
+              .single();
 
-          if (!error && newMessage && !newMessage.deleted_at) {
-            setMessages((prev) => {
-              const exists = prev.some((msg) => msg.id === newMessage.id);
-              if (exists) {
-                return prev.map((msg) =>
-                  msg.id === newMessage.id ? newMessage : msg
-                );
-              }
-              return [...prev, newMessage];
-            });
+            if (!error && newMessage && !newMessage.deleted_at) {
+              setMessages((prev) => {
+                const exists = prev.some((msg) => msg.id === newMessage.id);
+                if (exists) {
+                  return prev.map((msg) =>
+                    msg.id === newMessage.id ? newMessage : msg
+                  );
+                }
+                return [...prev, newMessage];
+              });
+            }
           }
         }
       )
@@ -156,7 +168,7 @@ export function MessagesProvider({
     };
   }, [conversationId, currentUserId, supabase]);
 
-  // ... rest of your code (sendMessage, retryMessage, etc.)
+  // ... (rest of your code: sendMessage, retryMessage, deleteFailedMessage, deleteMessage)
 
   return (
     <MessagesContext.Provider
