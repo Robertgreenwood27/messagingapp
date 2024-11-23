@@ -1,19 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type TypingStatusWithUser = TypingStatus & {
   user: Profile | null;
-}
-
-type TypingStatusChanges = {
-  id: string;
-  user_id: string;
-  conversation_id: string;
-  is_typing: boolean;
-  updated_at: string;
-}
+};
 
 type PostgresChanges = RealtimePostgresChangesPayload<{
   [key: string]: unknown;
@@ -22,12 +14,12 @@ type PostgresChanges = RealtimePostgresChangesPayload<{
   conversation_id: string;
   is_typing: boolean;
   updated_at: string;
-}>
+}>;
 
-export function TypingIndicator({ 
-  conversationId, 
-  otherUserId 
-}: { 
+export function TypingIndicator({
+  conversationId,
+  otherUserId,
+}: {
   conversationId: string;
   otherUserId: string;
 }) {
@@ -36,7 +28,7 @@ export function TypingIndicator({
   const [dots, setDots] = useState([
     { phase: 0, colorPhase: 0 },
     { phase: 2, colorPhase: 0.3 },
-    { phase: 4, colorPhase: 0.6 }
+    { phase: 4, colorPhase: 0.6 },
   ]);
   const supabase = createClient();
 
@@ -44,7 +36,7 @@ export function TypingIndicator({
     const colors = {
       hot: { r: 255, g: 70, b: 0 },
       warm: { r: 255, g: 200, b: 50 },
-      cold: { r: 0, g: 100, b: 255 }
+      cold: { r: 0, g: 100, b: 255 },
     };
 
     let color;
@@ -53,30 +45,32 @@ export function TypingIndicator({
       color = {
         r: colors.hot.r + (colors.warm.r - colors.hot.r) * t,
         g: colors.hot.g + (colors.warm.g - colors.hot.g) * t,
-        b: colors.hot.b + (colors.warm.b - colors.hot.b) * t
+        b: colors.hot.b + (colors.warm.b - colors.hot.b) * t,
       };
     } else {
       const t = (colorPhase - 0.5) * 2;
       color = {
         r: colors.warm.r + (colors.cold.r - colors.warm.r) * t,
         g: colors.warm.g + (colors.cold.g - colors.warm.g) * t,
-        b: colors.warm.b + (colors.cold.b - colors.warm.b) * t
+        b: colors.warm.b + (colors.cold.b - colors.warm.b) * t,
       };
     }
 
     return {
       base: `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.15)`,
-      glow: `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.4)`
+      glow: `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.4)`,
     };
   };
 
   useEffect(() => {
     const animate = () => {
-      setDots(dots => dots.map((dot) => {
-        const newPhase = (dot.phase + 0.03) % (Math.PI * 2);
-        const newColorPhase = (dot.colorPhase + 0.005) % 1;
-        return { phase: newPhase, colorPhase: newColorPhase };
-      }));
+      setDots((dots) =>
+        dots.map((dot) => {
+          const newPhase = (dot.phase + 0.03) % (Math.PI * 2);
+          const newColorPhase = (dot.colorPhase + 0.005) % 1;
+          return { phase: newPhase, colorPhase: newColorPhase };
+        })
+      );
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -99,7 +93,7 @@ export function TypingIndicator({
         .eq('conversation_id', conversationId)
         .eq('user_id', otherUserId)
         .single();
-      
+
       if (data) {
         setTypingStatus(data);
       }
@@ -108,7 +102,7 @@ export function TypingIndicator({
     fetchTypingStatus();
 
     const channel = supabase.channel(`typing:${conversationId}`);
-    
+
     channel
       .on(
         'postgres_changes' as const,
@@ -125,7 +119,7 @@ export function TypingIndicator({
               .select('*, user:profiles(*)')
               .eq('id', payload.new.id)
               .single();
-            
+
             if (typingData) {
               setTypingStatus(typingData);
             }
@@ -152,7 +146,7 @@ export function TypingIndicator({
               className="relative w-2 h-2"
               style={{
                 transform: `translateY(${Math.sin(dot.phase) * 3}px)`,
-                transition: 'transform 0.05s ease-out'
+                transition: 'transform 0.05s ease-out',
               }}
             >
               <div
@@ -161,7 +155,7 @@ export function TypingIndicator({
                   backgroundColor: colors.glow,
                   transform: `scale(${1 + Math.sin(dot.phase) * 0.2})`,
                   opacity: 0.5 + Math.sin(dot.phase) * 0.2,
-                  mixBlendMode: 'screen'
+                  mixBlendMode: 'screen',
                 }}
               />
               <div
@@ -169,7 +163,7 @@ export function TypingIndicator({
                 style={{
                   backgroundColor: colors.base,
                   opacity: 0.3,
-                  mixBlendMode: 'screen'
+                  mixBlendMode: 'screen',
                 }}
               />
             </div>
