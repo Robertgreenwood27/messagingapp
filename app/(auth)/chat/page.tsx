@@ -9,8 +9,6 @@ import { MessageList } from "@/components/messages/message-list";
 import { MessageInput } from "@/components/messages/message-input";
 import { ConversationHeader } from "@/components/conversations/conversation-header";
 import { TypingIndicator } from "@/components/messages/typing-indicator";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 type ConversationDetails = {
   otherParticipant: Profile;
