@@ -1,4 +1,3 @@
-// this is the new code
 // components/conversations/conversation-list.tsx
 
 import { useState, useEffect, useMemo } from "react";
