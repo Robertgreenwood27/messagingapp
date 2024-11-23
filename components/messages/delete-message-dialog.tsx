@@ -26,7 +26,7 @@ export function DeleteMessageDialog({ onDelete }: DeleteMessageDialogProps) {
       <AlertDialogTrigger asChild>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           className="relative h-8 w-8 p-0 opacity-0 group-hover:opacity-100 
                      transition-all duration-300 overflow-hidden
                      border border-transparent
