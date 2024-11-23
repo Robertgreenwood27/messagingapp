@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type TypingStatusWithUser = TypingStatus & {
   user: Profile | null;
@@ -130,7 +129,7 @@ export function TypingIndicator({
     return () => {
       subscription.unsubscribe();
     };
-  }, [conversationId, otherUserId, supabase]);
+  }, [conversationId, otherUserId]);
 
   if (!typingStatus?.is_typing) return null;
 
