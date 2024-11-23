@@ -142,9 +142,20 @@ export function MessageInput({
 
   return (
     <div className={`
-      relative bg-black border-t border-white/20
+      sticky bottom-0 left-0 right-0
+      bg-black border-t border-white/20
       ${isMobile ? 'p-2' : 'p-4'}
     `}>
+      {isSending && (
+        <div className="absolute -top-8 left-0 w-full p-2 text-center">
+          <span className="text-sm text-emerald-500/70 
+                         bg-black/40 px-3 py-1 rounded-full
+                         border border-emerald-500/20">
+            Sending...
+          </span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="relative flex items-center max-w-full gap-2">
         <div className="heat-input-container flex-1 min-w-0">
           <input
@@ -161,9 +172,7 @@ export function MessageInput({
               placeholder-white/30
               transition-all duration-300
               text-base
-              ${isMobile 
-                ? 'px-3 py-2.5 text-base' 
-                : 'px-4 py-3 text-lg'}
+              ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3'}
             `}
             placeholder="Type a message..."
           />
@@ -217,19 +226,6 @@ export function MessageInput({
           `} />
         </button>
       </form>
-
-      {isSending && (
-        <div className={`
-          absolute w-full p-2 text-center
-          ${isMobile ? '-top-6' : '-top-8'}
-        `}>
-          <span className="text-sm text-emerald-500/70 
-                         bg-black/40 px-3 py-1 rounded-full
-                         border border-emerald-500/20">
-            Sending...
-          </span>
-        </div>
-      )}
     </div>
   );
 }

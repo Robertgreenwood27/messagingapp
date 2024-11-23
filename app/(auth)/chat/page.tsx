@@ -115,7 +115,7 @@ export default function ChatPage() {
 
   return (
     <MessagesProvider conversationId={conversationDetails.conversationId}>
-      <div className="flex flex-col h-screen max-h-screen">
+      <div className="flex flex-col h-[100dvh] overflow-hidden"> {/* Changed to dynamic viewport height */}
         {/* Header */}
         <div className="flex-none">
           <ConversationHeader 
@@ -125,12 +125,12 @@ export default function ChatPage() {
         </div>
         
         {/* Messages */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 relative">
           <MessageList />
         </div>
         
         {/* Typing Indicator & Input */}
-        <div className="flex-none">
+        <div className="flex-none w-full">
           <TypingIndicator 
             conversationId={conversationDetails.conversationId}
             otherUserId={conversationDetails.otherParticipant.id}
