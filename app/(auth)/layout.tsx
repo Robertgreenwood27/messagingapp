@@ -51,9 +51,9 @@ export default function AuthLayout({
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={toggleNotes}
-                  className={`hover:bg-black/20 hover:shadow-[0_0_10px_rgba(16,185,129,0.05)] 
+                  className={`h-8 w-8 p-0 hover:bg-black/20 hover:shadow-[0_0_10px_rgba(16,185,129,0.05)] 
                            transition-all duration-300
                            ${showNotes ? 'text-emerald-500' : ''}`}
                 >
@@ -62,9 +62,10 @@ export default function AuthLayout({
                 <NewConversationDialog />
                 <Button 
                   variant="ghost" 
-                  size="icon"
+                  size="sm"
                   onClick={handleLogout}
                   title="Logout"
+                  className="h-8 w-8 p-0"
                 >
                   <LogOut className="h-5 w-5" />
                 </Button>
@@ -87,6 +88,3 @@ export default function AuthLayout({
     </OnlineStatusProvider>
   );
 }
-
-
-
