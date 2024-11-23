@@ -24,8 +24,13 @@ type MessageWithStatus = MessageWithDeletedAt & {
 };
 
 // Type guard function
-function isMessageWithDeletedAt(record: any): record is MessageWithDeletedAt {
-  return record && typeof record.id === 'string';
+function isMessageWithDeletedAt(record: unknown): record is MessageWithDeletedAt {
+  return (
+    typeof record === 'object' &&
+    record !== null &&
+    'id' in record &&
+    typeof (record as { id: unknown }).id === 'string'
+  );
 }
 
 type MessagesContextType = {
@@ -168,7 +173,108 @@ export function MessagesProvider({
     };
   }, [conversationId, currentUserId, supabase]);
 
-  // ... (rest of your code: sendMessage, retryMessage, deleteFailedMessage, deleteMessage)
+  // Implemented functions
+  async function sendMessage(content: string, conversationId: string) {
+    if (!currentUserId) {
+      setError('User not authenticated');
+      return;
+    }
+
+    // Generate a temporary ID for optimistic UI updates
+    const tempId = `${currentUserId}-${Date.now()}`;
+
+    // Create a new message object with status 'sending'
+    const newMessage: MessageWithStatus = {
+      id: tempId,
+      content,
+      created_at: new Date().toISOString(),
+      deleted_at: null,
+      sender_id: currentUserId,
+      conversation_id: conversationId,
+      sender: null, // You can fetch the sender profile if needed
+      status: 'sending',
+      tempId,
+    };
+
+    // Optimistically update the messages state
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
+
+    // Attempt to send the message to the database
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        content,
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+      })
+      .select(
+        `
+        id,
+        content,
+        created_at,
+        deleted_at,
+        sender_id,
+        conversation_id,
+        sender:profiles(*)
+      `
+      )
+      .single();
+
+    if (error) {
+      // Update the message status to 'failed'
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
+        )
+      );
+      setError('Failed to send message');
+    } else if (data) {
+      // Replace the temporary message with the one from the database
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => (msg.tempId === tempId ? data : msg))
+      );
+    }
+  }
+
+  async function retryMessage(tempId: string) {
+    const messageToRetry = messages.find((msg) => msg.tempId === tempId);
+
+    if (!messageToRetry) {
+      setError('Message not found for retry');
+      return;
+    }
+
+    // Remove the failed message from the state
+    setMessages((prevMessages) =>
+      prevMessages.filter((msg) => msg.tempId !== tempId)
+    );
+
+    // Resend the message
+    await sendMessage(messageToRetry.content, messageToRetry.conversation_id);
+  }
+
+  function deleteFailedMessage(tempId: string) {
+    // Remove the failed message from the state
+    setMessages((prevMessages) =>
+      prevMessages.filter((msg) => msg.tempId !== tempId)
+    );
+  }
+
+  async function deleteMessage(messageId: string) {
+    const { error } = await supabase
+      .from('messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', messageId);
+
+    if (error) {
+      setError('Failed to delete message');
+    } else {
+      // Optionally, remove the message from local state
+      setMessages((prevMessages) =>
+        prevMessages.filter((msg) => msg.id !== messageId)
+      );
+    }
+  }
 
   return (
     <MessagesContext.Provider
