@@ -23,6 +23,11 @@ type MessageWithStatus = MessageWithDeletedAt & {
   tempId?: string;
 };
 
+// Type for raw database response
+interface MessageResponse extends MessageWithDeletedAt {
+  sender: Profile[] | Profile | null;
+}
+
 // Type guard function
 function isMessageWithDeletedAt(record: unknown): record is MessageWithDeletedAt {
   return (
@@ -31,6 +36,14 @@ function isMessageWithDeletedAt(record: unknown): record is MessageWithDeletedAt
     'id' in record &&
     typeof (record as { id: unknown }).id === 'string'
   );
+}
+
+// Helper function to process message response
+function processMessageResponse(message: MessageResponse): MessageWithStatus {
+  return {
+    ...message,
+    sender: Array.isArray(message.sender) ? message.sender[0] || null : message.sender
+  };
 }
 
 type MessagesContextType = {
@@ -78,7 +91,7 @@ export function MessagesProvider({
       .on<MessageWithDeletedAt>(
         'postgres_changes',
         {
-          event: '*', // Listen for INSERT and UPDATE
+          event: '*',
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
@@ -89,7 +102,6 @@ export function MessagesProvider({
             isMessageWithDeletedAt(payload.new) &&
             payload.new.sender_id === currentUserId
           ) {
-            // Ignore messages sent by the current user
             return;
           }
 
@@ -98,7 +110,6 @@ export function MessagesProvider({
             isMessageWithDeletedAt(payload.new) &&
             payload.new.deleted_at
           ) {
-            // Handle message deletion
             setMessages((prev) =>
               prev.filter((msg) => msg.id !== payload.new.id)
             );
@@ -116,21 +127,23 @@ export function MessagesProvider({
                 deleted_at,
                 sender_id,
                 conversation_id,
-                sender:profiles(*)
+                sender:profiles!sender_id(*)
               `
               )
               .eq('id', payload.new.id)
               .single();
 
             if (!error && newMessage && !newMessage.deleted_at) {
+              const processedMessage = processMessageResponse(newMessage as MessageResponse);
+              
               setMessages((prev) => {
-                const exists = prev.some((msg) => msg.id === newMessage.id);
+                const exists = prev.some((msg) => msg.id === processedMessage.id);
                 if (exists) {
                   return prev.map((msg) =>
-                    msg.id === newMessage.id ? newMessage : msg
+                    msg.id === processedMessage.id ? processedMessage : msg
                   );
                 }
-                return [...prev, newMessage];
+                return [...prev, processedMessage];
               });
             }
           }
@@ -149,7 +162,7 @@ export function MessagesProvider({
           deleted_at,
           sender_id,
           conversation_id,
-          sender:profiles(*)
+          sender:profiles!sender_id(*)
         `
         )
         .eq('conversation_id', conversationId)
@@ -162,7 +175,11 @@ export function MessagesProvider({
         return;
       }
 
-      setMessages(messagesData || []);
+      const processedMessages = (messagesData || []).map((message) => 
+        processMessageResponse(message as MessageResponse)
+      );
+
+      setMessages(processedMessages);
       setIsLoading(false);
     }
 
@@ -173,17 +190,14 @@ export function MessagesProvider({
     };
   }, [conversationId, currentUserId, supabase]);
 
-  // Implemented functions
   async function sendMessage(content: string, conversationId: string) {
     if (!currentUserId) {
       setError('User not authenticated');
       return;
     }
 
-    // Generate a temporary ID for optimistic UI updates
     const tempId = `${currentUserId}-${Date.now()}`;
 
-    // Create a new message object with status 'sending'
     const newMessage: MessageWithStatus = {
       id: tempId,
       content,
@@ -191,16 +205,14 @@ export function MessagesProvider({
       deleted_at: null,
       sender_id: currentUserId,
       conversation_id: conversationId,
-      sender: null, // You can fetch the sender profile if needed
+      sender: null,
       status: 'sending',
       tempId,
     };
 
-    // Optimistically update the messages state
     setMessages((prevMessages) => [...prevMessages, newMessage]);
 
-    // Attempt to send the message to the database
-    const { data, error } = await supabase
+    const { data: rawData, error } = await supabase
       .from('messages')
       .insert({
         content,
@@ -215,23 +227,22 @@ export function MessagesProvider({
         deleted_at,
         sender_id,
         conversation_id,
-        sender:profiles(*)
+        sender:profiles!sender_id(*)
       `
       )
       .single();
 
     if (error) {
-      // Update the message status to 'failed'
       setMessages((prevMessages) =>
         prevMessages.map((msg) =>
           msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
         )
       );
       setError('Failed to send message');
-    } else if (data) {
-      // Replace the temporary message with the one from the database
+    } else if (rawData) {
+      const processedMessage = processMessageResponse(rawData as MessageResponse);
       setMessages((prevMessages) =>
-        prevMessages.map((msg) => (msg.tempId === tempId ? data : msg))
+        prevMessages.map((msg) => (msg.tempId === tempId ? processedMessage : msg))
       );
     }
   }
@@ -244,17 +255,14 @@ export function MessagesProvider({
       return;
     }
 
-    // Remove the failed message from the state
     setMessages((prevMessages) =>
       prevMessages.filter((msg) => msg.tempId !== tempId)
     );
 
-    // Resend the message
     await sendMessage(messageToRetry.content, messageToRetry.conversation_id);
   }
 
   function deleteFailedMessage(tempId: string) {
-    // Remove the failed message from the state
     setMessages((prevMessages) =>
       prevMessages.filter((msg) => msg.tempId !== tempId)
     );
@@ -269,7 +277,6 @@ export function MessagesProvider({
     if (error) {
       setError('Failed to delete message');
     } else {
-      // Optionally, remove the message from local state
       setMessages((prevMessages) =>
         prevMessages.filter((msg) => msg.id !== messageId)
       );
