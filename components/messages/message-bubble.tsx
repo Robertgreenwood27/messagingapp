@@ -137,7 +137,7 @@ export function MessageBubble({
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     className={cn(
                       "h-8 w-8 p-0 opacity-0 group-hover:opacity-100",
                       "transition-all duration-300",
