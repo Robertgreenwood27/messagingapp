@@ -4,7 +4,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 type MessageWithStatus = (Message & { 
   sender: Profile | null;
