@@ -1,14 +1,23 @@
+// components/conversations/conversation-header.tsx
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useOnlineStatus } from "@/components/providers/online-status-provider";
 import type { Profile } from "@/lib/supabase/database.types";
 import { formatDistanceToNow } from "date-fns";
 import { useState, useEffect } from "react";
+import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-export function ConversationHeader({ otherParticipant }: { otherParticipant: Profile }) {
+interface ConversationHeaderProps {
+  otherParticipant: Profile;
+  isMobile?: boolean;
+}
+
+export function ConversationHeader({ otherParticipant, isMobile }: ConversationHeaderProps) {
   const { onlineUsers, isOnline } = useOnlineStatus();
   const userStatus = onlineUsers.get(otherParticipant.id);
   const online = isOnline(otherParticipant.id);
   const [heatPhase, setHeatPhase] = useState(0);
+  const router = useRouter();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -21,6 +30,10 @@ export function ConversationHeader({ otherParticipant }: { otherParticipant: Pro
     if (!userStatus) return "Offline";
     if (online) return "Online";
     return `Last seen ${formatDistanceToNow(new Date(userStatus.last_seen), { addSuffix: true })}`;
+  };
+
+  const handleBackClick = () => {
+    router.push('/chat');
   };
 
   return (
@@ -39,6 +52,16 @@ export function ConversationHeader({ otherParticipant }: { otherParticipant: Pro
       </div>
 
       <div className="relative flex items-center gap-3 p-4 bg-black/10">
+        {isMobile && (
+          <button
+            onClick={handleBackClick}
+            className="mr-2 p-2 rounded-full transition-colors duration-300
+                     hover:bg-white/5"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        
         <div className="relative">
           <Avatar className="ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_10px_rgba(16,185,129,0.1)]">
             <AvatarImage src={otherParticipant.avatar_url || undefined} />

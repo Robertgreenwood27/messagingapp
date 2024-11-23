@@ -9,6 +9,8 @@ import { MessageList } from "@/components/messages/message-list";
 import { MessageInput } from "@/components/messages/message-input";
 import { ConversationHeader } from "@/components/conversations/conversation-header";
 import { TypingIndicator } from "@/components/messages/typing-indicator";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type ConversationDetails = {
   otherParticipant: Profile;
@@ -21,6 +23,14 @@ export default function ChatPage() {
   const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 768);
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
 
   useEffect(() => {
     async function loadConversationDetails() {
@@ -89,7 +99,9 @@ export default function ChatPage() {
       <div className="flex flex-col items-center justify-center h-screen p-4 text-center space-y-4">
         <h1 className="text-xl font-semibold">Select a Conversation</h1>
         <p className="text-muted-foreground">
-          Choose a conversation from the sidebar or start a new one.
+          {isMobile 
+            ? "Tap the menu icon to choose a conversation" 
+            : "Choose a conversation from the sidebar or start a new one"}
         </p>
       </div>
     );
@@ -105,14 +117,31 @@ export default function ChatPage() {
 
   return (
     <MessagesProvider conversationId={conversationDetails.conversationId}>
-      <div className="flex flex-col h-screen">
-        <ConversationHeader otherParticipant={conversationDetails.otherParticipant} />
-        <MessageList />
-        <TypingIndicator 
-          conversationId={conversationDetails.conversationId}
-          otherUserId={conversationDetails.otherParticipant.id}
-        />
-        <MessageInput conversationId={conversationDetails.conversationId} />
+      <div className="flex flex-col h-screen max-h-screen">
+        {/* Header */}
+        <div className="flex-none">
+          <ConversationHeader 
+            otherParticipant={conversationDetails.otherParticipant}
+            isMobile={isMobile}
+          />
+        </div>
+        
+        {/* Messages */}
+        <div className="flex-1 min-h-0">
+          <MessageList />
+        </div>
+        
+        {/* Typing Indicator & Input */}
+        <div className="flex-none">
+          <TypingIndicator 
+            conversationId={conversationDetails.conversationId}
+            otherUserId={conversationDetails.otherParticipant.id}
+          />
+          <MessageInput 
+            conversationId={conversationDetails.conversationId}
+            isMobile={isMobile}
+          />
+        </div>
       </div>
     </MessagesProvider>
   );

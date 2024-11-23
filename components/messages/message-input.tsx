@@ -1,3 +1,4 @@
+// components/messages/message-input.tsx
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMessages } from "@/components/providers/messages-provider";
 import { createClient } from "@/lib/supabase/client";
@@ -9,7 +10,13 @@ type CharacterData = {
   timestamp: number;
 };
 
-export function MessageInput({ conversationId }: { conversationId: string }) {
+export function MessageInput({ 
+  conversationId,
+  isMobile 
+}: { 
+  conversationId: string;
+  isMobile?: boolean;
+}) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [chars, setChars] = useState<CharacterData[]>([]);
@@ -134,21 +141,25 @@ export function MessageInput({ conversationId }: { conversationId: string }) {
   }, [debouncedStopTyping, updateTypingStatus]);
 
   return (
-    <div className="p-4 relative bg-black/10">
-      <form onSubmit={handleSubmit} className="relative flex items-center">
-        <div className="heat-input-container flex-1">
+    <div className="p-2 sm:p-4 relative bg-black border-t border-white/20">
+      <form onSubmit={handleSubmit} className="relative flex items-center max-w-full gap-2">
+        <div className="heat-input-container flex-1 min-w-0">
           <input
             value={message}
             onChange={handleChange}
-            className="w-full px-4 py-2 rounded-lg 
-                     bg-black/20
-                     border border-white/5 heat-input
-                     focus:border-emerald-500/10
-                     focus:shadow-[0_0_10px_rgba(16,185,129,0.05)]
-                     focus:outline-none
-                     transition-all duration-300"
+            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg 
+                     bg-white/5 
+                     border-2 border-white/20
+                     focus:border-emerald-500/30
+                     focus:shadow-[0_0_15px_rgba(16,185,129,0.15)]
+                     focus:bg-white/10
+                     focus:outline-none heat-input
+                     placeholder-white/30
+                     transition-all duration-300
+                     text-base"
+            placeholder="Type a message..."
           />
-          <div className="heat-input-overlay flex items-center">
+          <div className="heat-input-overlay flex items-center px-3 sm:px-4 py-2.5 sm:py-3">
             {chars.length > 0 ? (
               chars.map((char, idx) => (
                 <span key={idx}>{renderCharacter(char)}</span>
@@ -161,9 +172,9 @@ export function MessageInput({ conversationId }: { conversationId: string }) {
                     background: `linear-gradient(
                       90deg,
                       transparent 0%,
-                      rgba(0, 183, 255, 0.03) 25%,
-                      rgba(0, 255, 179, 0.05) 50%,
-                      rgba(0, 183, 255, 0.03) 75%,
+                      rgba(0, 183, 255, 0.05) 25%,
+                      rgba(0, 255, 179, 0.08) 50%,
+                      rgba(0, 183, 255, 0.05) 75%,
                       transparent 100%
                     )`,
                   }}
@@ -176,19 +187,29 @@ export function MessageInput({ conversationId }: { conversationId: string }) {
         <button
           type="submit"
           disabled={isSending}
-          className="ml-2 p-2 rounded-full bg-black/20 
-                   border border-white/5
-                   hover:border-emerald-500/10
-                   hover:shadow-[0_0_10px_rgba(16,185,129,0.05)]
+          className="flex-none p-2.5 sm:p-3 rounded-lg
+                   bg-white/5 
+                   border-2 border-white/20
+                   hover:bg-emerald-500/10
+                   hover:border-emerald-500/30
+                   hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]
+                   active:transform active:scale-95
+                   disabled:opacity-50
                    transition-all duration-300"
         >
-          <SendHorizontal className="w-5 h-5 text-white/50" />
+          <SendHorizontal className={`w-5 h-5 
+            ${isSending ? 'text-white/30' : 'text-emerald-500/80'}`} 
+          />
         </button>
       </form>
 
       {isSending && (
-        <div className="absolute bottom-full left-0 w-full p-2 text-center">
-          <span className="text-sm text-emerald-500/50">Sending...</span>
+        <div className="absolute -top-8 left-0 w-full p-2 text-center">
+          <span className="text-sm text-emerald-500/70 
+                         bg-black/40 px-3 py-1 rounded-full
+                         border border-emerald-500/20">
+            Sending...
+          </span>
         </div>
       )}
     </div>
