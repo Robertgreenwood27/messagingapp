@@ -1,10 +1,12 @@
 // app/(auth)/admin/cleanup/page.tsx
+"use client";
+import { Suspense } from 'react';
 import { CleanupStats } from '@/components/admin/cleanup-stats'
 import { CleanupLogs } from '@/components/admin/cleanup-logs'
 import { TriggerCleanup } from '@/components/admin/trigger-cleanup'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
-export default function CleanupDashboard() {
+function CleanupDashboardContent() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center mb-8">
@@ -32,5 +34,13 @@ export default function CleanupDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
+}
+
+export default function CleanupDashboard() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading dashboard...</div>}>
+      <CleanupDashboardContent />
+    </Suspense>
+  );
 }
