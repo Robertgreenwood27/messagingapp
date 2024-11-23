@@ -1,7 +1,7 @@
 // components/providers/online-status-provider.tsx
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { OnlineStatus } from '@/lib/supabase/database.types';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -33,15 +33,19 @@ type PostgresChangesPayload = RealtimePostgresChangesPayload<{
 
 // Type guard for RealtimeOnlineStatus
 function isRealtimeOnlineStatus(value: unknown): value is RealtimeOnlineStatus {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'user_id' in value &&
-    typeof (value as any).user_id === 'string' &&
-    'last_seen' in value &&
-    typeof (value as any).last_seen === 'string' &&
-    'is_online' in value &&
-    typeof (value as any).is_online === 'boolean'
+    'user_id' in candidate &&
+    typeof candidate.user_id === 'string' &&
+    'last_seen' in candidate &&
+    typeof candidate.last_seen === 'string' &&
+    'is_online' in candidate &&
+    typeof candidate.is_online === 'boolean'
   );
 }
 
@@ -68,7 +72,7 @@ export function OnlineStatusProvider({
   const [onlineUsers, setOnlineUsers] = useState<Map<string, OnlineStatus>>(new Map());
   const supabase = createClient();
 
-  const isOnline = (userId: string) => {
+  const isOnline = useCallback((userId: string) => {
     const status = onlineUsers.get(userId);
     if (!status) return false;
     
@@ -76,10 +80,10 @@ export function OnlineStatusProvider({
     const now = new Date().getTime();
     
     return status.is_online && (now - lastSeenTime) < ONLINE_THRESHOLD;
-  };
+  }, [onlineUsers]);
 
   // Update user's online status
-  const updateUserStatus = async (userId: string, isOnline: boolean) => {
+  const updateUserStatus = useCallback(async (userId: string, isOnline: boolean) => {
     try {
       // First check if a status exists
       const { data: existingStatus } = await supabase
@@ -118,10 +122,16 @@ export function OnlineStatusProvider({
     } catch (error) {
       console.error('Error in updateUserStatus:', error);
     }
-  };
+  }, [supabase]);
 
   // Debounced version of updateUserStatus to prevent too many updates
-  const debouncedUpdateStatus = debounce(updateUserStatus, 1000);
+  const debouncedUpdateStatus = useCallback(
+    debounce(
+      (userId: string, isOnline: boolean) => updateUserStatus(userId, isOnline),
+      1000
+    ),
+    [updateUserStatus]
+  );
 
   useEffect(() => {
     let userStatusInterval: NodeJS.Timeout;
@@ -145,6 +155,8 @@ export function OnlineStatusProvider({
 
       // Handle visibility change
       const handleVisibilityChange = async () => {
+        if (!user.id) return;
+        
         if (document.visibilityState === 'hidden') {
           // Cancel any pending debounced updates
           debouncedUpdateStatus.cancel();
@@ -229,7 +241,7 @@ export function OnlineStatusProvider({
         clearInterval(userStatusInterval);
       }
     };
-  }, []);
+  }, [updateUserStatus, debouncedUpdateStatus, supabase]);
 
   return (
     <OnlineStatusContext.Provider value={{ onlineUsers, isOnline }}>
