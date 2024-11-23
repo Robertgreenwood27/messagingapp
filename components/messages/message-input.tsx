@@ -20,6 +20,8 @@ export function MessageInput({
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [chars, setChars] = useState<CharacterData[]>([]);
+  const [rows, setRows] = useState(1);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage } = useMessages();
   const supabase = createClient();
   const refreshInterval = useRef<NodeJS.Timeout>();
@@ -66,7 +68,17 @@ export function MessageInput({
     [updateTypingStatus]
   );
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 150);
+      textarea.style.height = `${newHeight}px`;
+      setRows(Math.ceil(newHeight / 24));
+    }
+  };
+
+  const handleChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setMessage(newValue);
 
@@ -76,10 +88,14 @@ export function MessageInput({
     });
     setChars(newChars);
 
-    // Update typing status
     await updateTypingStatus(true);
     debouncedStopTyping();
+    adjustTextareaHeight();
   };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [message]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,11 +172,13 @@ export function MessageInput({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="relative flex items-center max-w-full gap-2">
+      <form onSubmit={handleSubmit} className="relative flex items-end max-w-full gap-2">
         <div className="heat-input-container flex-1 min-w-0">
-          <input
+          <textarea
+            ref={textareaRef}
             value={message}
             onChange={handleChange}
+            rows={1}
             className={`
               w-full rounded-lg 
               bg-white/5 
@@ -172,35 +190,26 @@ export function MessageInput({
               placeholder-white/30
               transition-all duration-300
               text-base
+              resize-none
+              overflow-hidden
               ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3'}
             `}
             placeholder="Type a message..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
           />
           <div className={`
             heat-input-overlay flex items-center
             ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3'}
+            whitespace-pre-wrap break-words
           `}>
-            {chars.length > 0 ? (
-              chars.map((char, idx) => (
-                <span key={idx}>{renderCharacter(char)}</span>
-              ))
-            ) : (
-              <div className="flex-1 h-6 rounded-md overflow-hidden">
-                <div
-                  className="w-1/3 h-full animate-pulse-move"
-                  style={{
-                    background: `linear-gradient(
-                      90deg,
-                      transparent 0%,
-                      rgba(0, 183, 255, 0.05) 25%,
-                      rgba(0, 255, 179, 0.08) 50%,
-                      rgba(0, 183, 255, 0.05) 75%,
-                      transparent 100%
-                    )`,
-                  }}
-                />
-              </div>
-            )}
+            {chars.map((char, idx) => (
+              <span key={idx}>{renderCharacter(char)}</span>
+            ))}
           </div>
         </div>
 
@@ -218,6 +227,7 @@ export function MessageInput({
             disabled:opacity-50
             transition-all duration-300
             ${isMobile ? 'p-2.5' : 'p-3'}
+            mb-[1px]
           `}
         >
           <SendHorizontal className={`
