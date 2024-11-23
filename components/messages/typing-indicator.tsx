@@ -1,18 +1,21 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { TypingStatus, Profile, Database } from '@/lib/supabase/database.types';
+import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type TypingStatusWithUser = TypingStatus & {
   user: Profile | null;
 }
 
-type TypingStatusPayload = RealtimePostgresChangesPayload<{
-  [key: string]: any;
+type TypingStatusChanges = {
+  id: string;
   user_id: string;
   conversation_id: string;
   is_typing: boolean;
-}>
+  updated_at: string;
+}
+
+type TypingStatusPayload = RealtimePostgresChangesPayload<TypingStatusChanges>
 
 export function TypingIndicator({ 
   conversationId, 
