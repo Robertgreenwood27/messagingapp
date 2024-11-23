@@ -10,10 +10,10 @@ import PersonalNotes from "@/components/notes/personalNotes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
-export default function AuthLayout({
-  children,
+function AuthLayoutContent({
+  children
 }: {
   children: React.ReactNode;
 }) {
@@ -86,5 +86,26 @@ export default function AuthLayout({
         </main>
       </div>
     </OnlineStatusProvider>
+  );
+}
+
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen">
+        <aside className="w-80 border-r bg-slate-50/50 dark:bg-slate-950/50">
+          <div className="p-4 animate-pulse">Loading...</div>
+        </aside>
+        <main className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse">Loading content...</div>
+        </main>
+      </div>
+    }>
+      <AuthLayoutContent>{children}</AuthLayoutContent>
+    </Suspense>
   );
 }

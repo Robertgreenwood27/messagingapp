@@ -2,7 +2,7 @@
 "use client";
 import { MessagesProvider } from "@/components/providers/messages-provider";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Profile } from "@/lib/supabase/database.types";
 import { MessageList } from "@/components/messages/message-list";
@@ -15,7 +15,7 @@ type ConversationDetails = {
   conversationId: string;
 };
 
-function ChatPageContent() {
+export default function ChatPage() {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversation");
   const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
@@ -115,13 +115,5 @@ function ChatPageContent() {
         <MessageInput conversationId={conversationDetails.conversationId} />
       </div>
     </MessagesProvider>
-  );
-}
-
-export default function ChatPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
-      <ChatPageContent />
-    </Suspense>
   );
 }
