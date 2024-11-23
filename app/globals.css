@@ -123,9 +123,9 @@ input:-webkit-autofill:active {
   border-color: black !important;
 }
 
-/* Override all borders to be black */
+/* Override all borders to be grey */
 * {
-  border-color: black !important;
+  border-color: #212121 !important;
 }
 
 /* Ensure thermal effects still work but reset to black */
