@@ -1,16 +1,21 @@
-// components/providers/messages-provider.tsx
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
 
-type MessageWithStatus = (Message & { 
+type MessageWithStatus = Message & {
   sender: Profile | null;
   status?: 'sending' | 'failed';
   tempId?: string;
   deleted_at?: string | null;
-});
+};
 
 type MessagesContextType = {
   messages: MessageWithStatus[];
@@ -22,7 +27,9 @@ type MessagesContextType = {
   error: string | null;
 };
 
-const MessagesContext = createContext<MessagesContextType | undefined>(undefined);
+const MessagesContext = createContext<MessagesContextType | undefined>(
+  undefined
+);
 
 export function MessagesProvider({
   children,
@@ -61,17 +68,30 @@ export function MessagesProvider({
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          if (payload.new.sender_id === currentUserId && payload.eventType === 'INSERT') return;
+          if (
+            payload.eventType === 'INSERT' &&
+            'sender_id' in payload.new &&
+            payload.new.sender_id === currentUserId
+          ) {
+            return;
+          }
 
-          if (payload.eventType === 'UPDATE' && payload.new.deleted_at) {
+          if (
+            payload.eventType === 'UPDATE' &&
+            'deleted_at' in payload.new &&
+            payload.new.deleted_at
+          ) {
             // Handle message deletion
-            setMessages((prev) => prev.filter(msg => msg.id !== payload.new.id));
+            setMessages((prev) =>
+              prev.filter((msg) => msg.id !== payload.new.id)
+            );
             return;
           }
 
           const { data: newMessage, error } = await supabase
             .from('messages')
-            .select(`
+            .select(
+              `
               id,
               content,
               created_at,
@@ -79,15 +99,18 @@ export function MessagesProvider({
               sender_id,
               conversation_id,
               sender:profiles(*)
-            `)
+            `
+            )
             .eq('id', payload.new.id)
             .single();
 
           if (!error && newMessage && !newMessage.deleted_at) {
             setMessages((prev) => {
-              const exists = prev.some(msg => msg.id === newMessage.id);
+              const exists = prev.some((msg) => msg.id === newMessage.id);
               if (exists) {
-                return prev.map(msg => msg.id === newMessage.id ? newMessage : msg);
+                return prev.map((msg) =>
+                  msg.id === newMessage.id ? newMessage : msg
+                );
               }
               return [...prev, newMessage];
             });
@@ -99,7 +122,8 @@ export function MessagesProvider({
     async function fetchMessages() {
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
+        .select(
+          `
           id,
           content,
           created_at,
@@ -107,7 +131,8 @@ export function MessagesProvider({
           sender_id,
           conversation_id,
           sender:profiles(*)
-        `)
+        `
+        )
         .eq('conversation_id', conversationId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true });
@@ -144,10 +169,11 @@ export function MessagesProvider({
       conversation_id: conversationId,
       sender: null,
       status: 'sending',
-      tempId
+      tempId,
+      deleted_at: null,
     };
 
-    setMessages(prev => [...prev, optimisticMessage]);
+    setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
       const { data: newMessage, error: sendError } = await supabase
@@ -157,7 +183,8 @@ export function MessagesProvider({
           conversation_id: conversationId,
           sender_id: currentUserId,
         })
-        .select(`
+        .select(
+          `
           id,
           content,
           created_at,
@@ -165,21 +192,23 @@ export function MessagesProvider({
           sender_id,
           conversation_id,
           sender:profiles(*)
-        `)
+        `
+        )
         .single();
 
       if (sendError) throw sendError;
 
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === tempId ? { ...newMessage, tempId: undefined, status: undefined } : msg
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempId
+            ? { ...newMessage, tempId: undefined, status: undefined }
+            : msg
         )
       );
-
     } catch (err) {
       console.error('Failed to send message:', err);
-      setMessages(prev => 
-        prev.map(msg => 
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.id === tempId ? { ...msg, status: 'failed' } : msg
         )
       );
@@ -188,11 +217,11 @@ export function MessagesProvider({
   };
 
   const retryMessage = async (tempId: string) => {
-    const failedMessage = messages.find(msg => msg.tempId === tempId);
+    const failedMessage = messages.find((msg) => msg.tempId === tempId);
     if (!failedMessage) return;
 
-    setMessages(prev => 
-      prev.map(msg => 
+    setMessages((prev) =>
+      prev.map((msg) =>
         msg.tempId === tempId ? { ...msg, status: 'sending' } : msg
       )
     );
@@ -205,7 +234,8 @@ export function MessagesProvider({
           conversation_id: failedMessage.conversation_id,
           sender_id: currentUserId,
         })
-        .select(`
+        .select(
+          `
           id,
           content,
           created_at,
@@ -213,53 +243,57 @@ export function MessagesProvider({
           sender_id,
           conversation_id,
           sender:profiles(*)
-        `)
+        `
+        )
         .single();
 
       if (sendError) throw sendError;
 
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.tempId === tempId ? { ...newMessage, tempId: undefined, status: undefined } : msg
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.tempId === tempId
+            ? { ...newMessage, tempId: undefined, status: undefined }
+            : msg
         )
       );
-
     } catch (err) {
-      setMessages(prev => 
-        prev.map(msg => 
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
         )
       );
-      setError(err instanceof Error ? err.message : 'Failed to retry sending message');
+      setError(
+        err instanceof Error ? err.message : 'Failed to retry sending message'
+      );
     }
   };
 
   const deleteFailedMessage = (tempId: string) => {
-    setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
+    setMessages((prev) => prev.filter((msg) => msg.tempId !== tempId));
   };
 
   const deleteMessage = async (messageId: string) => {
     if (!currentUserId) return;
-  
-    const messageToDelete = messages.find(msg => msg.id === messageId);
+
+    const messageToDelete = messages.find((msg) => msg.id === messageId);
     if (!messageToDelete || messageToDelete.sender_id !== currentUserId) return;
-  
+
     try {
       // First remove optimistically from UI
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
-  
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+
       const { error } = await supabase
         .from('messages')
-        .update({ 
-          deleted_at: new Date().toISOString()
+        .update({
+          deleted_at: new Date().toISOString(),
         })
         .eq('id', messageId)
         .eq('sender_id', currentUserId); // Add explicit sender check
-  
+
       if (error) {
         console.error('Delete error:', error);
         // Rollback optimistic update
-        setMessages(prev => [...prev, messageToDelete]);
+        setMessages((prev) => [...prev, messageToDelete]);
         throw error;
       }
     } catch (err) {
