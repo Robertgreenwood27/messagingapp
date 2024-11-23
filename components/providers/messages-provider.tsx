@@ -15,7 +15,6 @@ type MessageWithStatus = Message & {
   sender: Profile | null;
   status?: 'sending' | 'failed';
   tempId?: string;
-  deleted_at?: string | null;
 };
 
 type MessagesContextType = {
@@ -46,12 +45,13 @@ export function MessagesProvider({
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    // Fetch current user ID
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setCurrentUserId(user.id);
       }
     });
-  }, [supabase.auth]);
+  }, [supabase]);
 
   useEffect(() => {
     if (!conversationId || !currentUserId) return;
@@ -73,6 +73,7 @@ export function MessagesProvider({
             payload.eventType === 'INSERT' &&
             payload.new.sender_id === currentUserId
           ) {
+            // Ignore messages sent by the current user
             return;
           }
 
@@ -253,6 +254,7 @@ export function MessagesProvider({
         )
       );
     } catch (err) {
+      console.error('Failed to retry sending message:', err);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
@@ -284,7 +286,7 @@ export function MessagesProvider({
           deleted_at: new Date().toISOString(),
         })
         .eq('id', messageId)
-        .eq('sender_id', currentUserId); // Add explicit sender check
+        .eq('sender_id', currentUserId); // Ensure only sender can delete
 
       if (error) {
         console.error('Delete error:', error);
