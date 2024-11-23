@@ -21,14 +21,27 @@ interface RealtimeOnlineStatus {
   updated_at: string;
 }
 
+type PostgresChangesPayload = RealtimePostgresChangesPayload<{
+  [key: string]: unknown;
+  id: string;
+  user_id: string;
+  last_seen: string;
+  is_online: boolean;
+  created_at: string;
+  updated_at: string;
+}>;
+
 // Type guard for RealtimeOnlineStatus
 function isRealtimeOnlineStatus(value: unknown): value is RealtimeOnlineStatus {
   return (
     typeof value === 'object' &&
     value !== null &&
     'user_id' in value &&
+    typeof (value as any).user_id === 'string' &&
     'last_seen' in value &&
-    'is_online' in value
+    typeof (value as any).last_seen === 'string' &&
+    'is_online' in value &&
+    typeof (value as any).is_online === 'boolean'
   );
 }
 
@@ -162,7 +175,7 @@ export function OnlineStatusProvider({
             schema: 'public',
             table: 'online_status'
           },
-          (payload: RealtimePostgresChangesPayload<{}>) => {
+          (payload: PostgresChangesPayload) => {
             setOnlineUsers(prevUsers => {
               const newUsers = new Map(prevUsers);
               if (payload.new && isRealtimeOnlineStatus(payload.new)) {
