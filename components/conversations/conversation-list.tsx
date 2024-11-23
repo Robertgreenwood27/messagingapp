@@ -7,10 +7,14 @@ import { useOnlineStatus } from "@/components/providers/online-status-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 
-type ConversationWithProfiles = Database["public"]["Tables"]["conversations"]["Row"] & {
-  participant1: Database["public"]["Tables"]["profiles"]["Row"];
-  participant2: Database["public"]["Tables"]["profiles"]["Row"];
-};
+// Updated type definitions
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
+
+interface ConversationWithProfiles extends Conversation {
+  participant1: Profile;
+  participant2: Profile;
+}
 
 export function ConversationList({ 
   activeConversationId,
@@ -53,27 +57,25 @@ export function ConversationList({
           return;
         }
 
-        const { data: conversationsData, error: conversationsError } = await supabase
+        const { data, error: conversationsError } = await supabase
           .from('conversations')
           .select(`
-            id,
-            participant1_id,
-            participant2_id,
-            participant1:profiles!conversations_participant1_id_fkey (
-              id, username, avatar_url
-            ),
-            participant2:profiles!conversations_participant2_id_fkey (
-              id, username, avatar_url
-            )
+            *,
+            participant1:profiles!conversations_participant1_id_fkey (*),
+            participant2:profiles!conversations_participant2_id_fkey (*)
           `)
           .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
           .order('updated_at', { ascending: false });
 
         if (conversationsError) throw conversationsError;
 
-        setConversations(conversationsData.filter(conv => 
-          conv.participant1_id !== conv.participant2_id
-        ));
+        if (data) {
+          const typedData = data as unknown as ConversationWithProfiles[];
+          setConversations(typedData.filter(conv => 
+            conv.participant1_id !== conv.participant2_id
+          ));
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error('Failed to load conversations:', err);
