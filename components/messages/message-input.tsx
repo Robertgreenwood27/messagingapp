@@ -141,25 +141,36 @@ export function MessageInput({
   }, [debouncedStopTyping, updateTypingStatus]);
 
   return (
-    <div className="p-2 sm:p-4 relative bg-black border-t border-white/20">
+    <div className={`
+      relative bg-black border-t border-white/20
+      ${isMobile ? 'p-2' : 'p-4'}
+    `}>
       <form onSubmit={handleSubmit} className="relative flex items-center max-w-full gap-2">
         <div className="heat-input-container flex-1 min-w-0">
           <input
             value={message}
             onChange={handleChange}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg 
-                     bg-white/5 
-                     border-2 border-white/20
-                     focus:border-emerald-500/30
-                     focus:shadow-[0_0_15px_rgba(16,185,129,0.15)]
-                     focus:bg-white/10
-                     focus:outline-none heat-input
-                     placeholder-white/30
-                     transition-all duration-300
-                     text-base"
+            className={`
+              w-full rounded-lg 
+              bg-white/5 
+              border-2 border-white/20
+              focus:border-emerald-500/30
+              focus:shadow-[0_0_15px_rgba(16,185,129,0.15)]
+              focus:bg-white/10
+              focus:outline-none heat-input
+              placeholder-white/30
+              transition-all duration-300
+              text-base
+              ${isMobile 
+                ? 'px-3 py-2.5 text-base' 
+                : 'px-4 py-3 text-lg'}
+            `}
             placeholder="Type a message..."
           />
-          <div className="heat-input-overlay flex items-center px-3 sm:px-4 py-2.5 sm:py-3">
+          <div className={`
+            heat-input-overlay flex items-center
+            ${isMobile ? 'px-3 py-2.5' : 'px-4 py-3'}
+          `}>
             {chars.length > 0 ? (
               chars.map((char, idx) => (
                 <span key={idx}>{renderCharacter(char)}</span>
@@ -187,24 +198,31 @@ export function MessageInput({
         <button
           type="submit"
           disabled={isSending}
-          className="flex-none p-2.5 sm:p-3 rounded-lg
-                   bg-white/5 
-                   border-2 border-white/20
-                   hover:bg-emerald-500/10
-                   hover:border-emerald-500/30
-                   hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]
-                   active:transform active:scale-95
-                   disabled:opacity-50
-                   transition-all duration-300"
+          className={`
+            flex-none rounded-lg
+            bg-white/5 
+            border-2 border-white/20
+            hover:bg-emerald-500/10
+            hover:border-emerald-500/30
+            hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]
+            active:transform active:scale-95
+            disabled:opacity-50
+            transition-all duration-300
+            ${isMobile ? 'p-2.5' : 'p-3'}
+          `}
         >
-          <SendHorizontal className={`w-5 h-5 
-            ${isSending ? 'text-white/30' : 'text-emerald-500/80'}`} 
-          />
+          <SendHorizontal className={`
+            ${isMobile ? 'w-5 h-5' : 'w-6 h-6'}
+            ${isSending ? 'text-white/30' : 'text-emerald-500/80'}
+          `} />
         </button>
       </form>
 
       {isSending && (
-        <div className="absolute -top-8 left-0 w-full p-2 text-center">
+        <div className={`
+          absolute w-full p-2 text-center
+          ${isMobile ? '-top-6' : '-top-8'}
+        `}>
           <span className="text-sm text-emerald-500/70 
                          bg-black/40 px-3 py-1 rounded-full
                          border border-emerald-500/20">
