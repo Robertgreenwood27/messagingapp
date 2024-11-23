@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Message, Profile } from '@/lib/supabase/database.types';
-import { SupabaseRealtimePayload } from '@supabase/supabase-js';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type MessageWithStatus = Message & {
   sender: Profile | null;
@@ -68,7 +68,7 @@ export function MessagesProvider({
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        async (payload: SupabaseRealtimePayload<Message>) => {
+        async (payload: RealtimePostgresChangesPayload<Message>) => {
           if (
             payload.eventType === 'INSERT' &&
             payload.new.sender_id === currentUserId
