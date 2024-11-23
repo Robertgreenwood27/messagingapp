@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { cn } from "@/lib/utils";
 import type { TypingStatus, Profile } from '@/lib/supabase/database.types';
 
 type TypingStatusWithUser = TypingStatus & {
@@ -55,7 +54,7 @@ export function TypingIndicator({
 
   useEffect(() => {
     const animate = () => {
-      setDots(dots => dots.map((dot, i) => {
+      setDots(dots => dots.map((dot) => {
         const newPhase = (dot.phase + 0.03) % (Math.PI * 2);
         const newColorPhase = (dot.colorPhase + 0.005) % 1;
         return { phase: newPhase, colorPhase: newColorPhase };

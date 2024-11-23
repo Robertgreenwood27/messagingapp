@@ -7,7 +7,7 @@ import { ConversationList } from "@/components/conversations/conversation-list";
 import { NewConversationDialog } from "@/components/conversations/new-conversation-dialog";
 import { OnlineStatusProvider } from "@/components/providers/online-status-provider";
 import PersonalNotes from "@/components/notes/personalNotes";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Pencil } from "lucide-react";
 import { useState } from "react";
@@ -18,7 +18,6 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentConversationId = searchParams.get("conversation");
   const [showNotes, setShowNotes] = useState(false);
@@ -88,3 +87,6 @@ export default function AuthLayout({
     </OnlineStatusProvider>
   );
 }
+
+
+

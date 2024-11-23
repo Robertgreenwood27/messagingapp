@@ -1,10 +1,17 @@
-// components/admin/cleanup-logs.tsx
 "use client"
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+interface CleanupLog {
+  id: string | number;
+  executed_at: string;
+  messages_deleted: number;
+  duration_ms: number;
+  error: string | null;
+}
+
 export function CleanupLogs() {
-  const [logs, setLogs] = useState([])
+  const [logs, setLogs] = useState<CleanupLog[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,7 +42,7 @@ export function CleanupLogs() {
         schema: 'public',
         table: 'cleanup_logs'
       }, (payload) => {
-        setLogs(current => [payload.new, ...current.slice(0, 9)])
+        setLogs(current => [payload.new as CleanupLog, ...current.slice(0, 9)])
       })
       .subscribe()
 
@@ -60,7 +67,7 @@ export function CleanupLogs() {
           </tr>
         </thead>
         <tbody>
-          {logs.map((log: any) => (
+          {logs.map((log: CleanupLog) => (
             <tr key={log.id} className="border-b">
               <td className="px-6 py-4">
                 {new Date(log.executed_at).toLocaleString()}

@@ -1,9 +1,8 @@
 // this is the new code
 // components/conversations/conversation-list.tsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useOnlineStatus } from "@/components/providers/online-status-provider";
 import { createClient } from "@/lib/supabase/client";
@@ -28,7 +27,7 @@ export function ConversationList({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [phase, setPhase] = useState(0);
   const { onlineUsers } = useOnlineStatus();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -41,7 +40,7 @@ export function ConversationList({
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setCurrentUserId(user.id);
     });
-  }, []);
+  }, [supabase.auth]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -96,7 +95,7 @@ export function ConversationList({
     return () => {
       subscription.unsubscribe();
     };
-  }, [currentUserId]);
+  }, [currentUserId, supabase]);
 
   if (loading) {
     return (
