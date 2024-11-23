@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Pencil, Save } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { createClient } from "@/lib/supabase/client";
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { createClient } from '@/lib/supabase/client';
 
 const PersonalNotes = () => {
   const [notes, setNotes] = useState('');
@@ -14,7 +14,9 @@ const PersonalNotes = () => {
   useEffect(() => {
     // Load notes from Supabase on component mount
     const loadNotes = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -79,7 +81,9 @@ const PersonalNotes = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Use upsert to update or insert the note
@@ -108,10 +112,7 @@ const PersonalNotes = () => {
     }
   };
 
-  const renderCharacter = (
-    charData: { char: string; timestamp: number },
-    index: number
-  ) => {
+  const renderCharacter = (charData: { char: string; timestamp: number }, index: number) => {
     const age = Date.now() - charData.timestamp;
     const maxAge = 8000; // Extend maxAge for a longer cooling effect
     const progress = Math.min(age / maxAge, 1);
@@ -182,19 +183,12 @@ const PersonalNotes = () => {
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             variant="ghost"
-            size="icon" // This is now accepted after updating Button component
+            size="sm" // Use an allowed size value
             className={`
+              p-2 // Adjust padding to mimic 'icon' size
               transition-all duration-300
-              ${
-                hasChanges
-                  ? 'text-orange-400 hover:text-orange-300'
-                  : 'text-white/30'
-              }
-              ${
-                hasChanges
-                  ? 'hover:shadow-[0_0_15px_rgba(249,115,22,0.15)]'
-                  : ''
-              }
+              ${hasChanges ? 'text-orange-400 hover:text-orange-300' : 'text-white/30'}
+              ${hasChanges ? 'hover:shadow-[0_0_15px_rgba(249,115,22,0.15)]' : ''}
             `}
           >
             <Save className="w-5 h-5" />
